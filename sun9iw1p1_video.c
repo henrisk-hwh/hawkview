@@ -13,6 +13,9 @@ static int nbuffers = 0;
 static int videofh = 0;
 static int req_frame_num = 7;
 
+int old_status = 0;
+int old_vi_cmd = 0;
+
 static int capture_init(void* capture)
 {
 	int i;
@@ -22,6 +25,10 @@ static int capture_init(void* capture)
 	struct v4l2_streamparm parms;
 	struct v4l2_requestbuffers req;
 	capture_handle* cap = (capture_handle*)capture;
+
+	cap->status = STREAM_OFF;
+	cap->cmd = COMMAND_UNUSED;
+	
 	//hv_dbg("cap->video_no:%d\n",cap->video_no);
 	snprintf(dev_name, sizeof(dev_name), "/dev/video%d", cap->video_no);
 
@@ -134,32 +141,47 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 
 	fd_set fds;
 	struct timeval tv;
-	//hv_dbg("capture frame state is %d\n",cap->state);
-	if(cap->state == START_STREAMMING){
+	
+	//used for cammand and status debug
+	if (old_vi_cmd != cap->cmd){
+		hv_dbg("capture frame command is %d\n",cap->cmd);
+		old_vi_cmd = (int)cap->cmd;
+	}
+	if(old_status != cap->status){
+		hv_dbg("capture frame status is %d\n",cap->status);
+		old_status = cap->status;
+	}
+
+	if(cap->status == STREAM_OFF && cap->cmd == START_STREAMMING){
 		hv_dbg("capture start streaming\n");
 		type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		if (ioctl(videofh, VIDIOC_STREAMON, &type) == -1) {
 			hv_err("VIDIOC_STREAMON error\n");
 			goto quit;
 		}
-		capture_command(capture,DO_STREAMMIMG);
+		cap->status = STREAM_ON;
+		cap->cmd = COMMAND_UNUSED;
 		return 0;
 	}
 	
-	if(cap->state == STOP_STREAMMING){
+	if(cap->status == STREAM_ON && cap->cmd == STOP_STREAMMING){
+		hv_dbg("capture stop streaming\n");
 		if(-1==ioctl(videofh, VIDIOC_STREAMOFF, &type)){
-			hv_err("vidioc_streamoff error!\n");
+			hv_err("VIDIOC_STREAMOFF error!\n");
 			goto quit;
 		}
+		cap->status = STREAM_OFF;
+		cap->cmd = COMMAND_UNUSED;
+		
 		return 0;
 	}
 
+	if(cap->status == STREAM_OFF) return 0;
 	FD_ZERO(&fds);
 	FD_SET(videofh, &fds);
 
 	tv.tv_sec  = 2;
 	tv.tv_usec = 0;
-
 	ret = select(videofh + 1, &fds, NULL, NULL, &tv);
 	//hv_dbg("select video ret: %d\n",ret);
 	if (ret == -1) {
@@ -185,18 +207,20 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 	// set disp buffer
 	if (set_disp_addr)
 		set_disp_addr(cap->cap_w,cap->cap_h,&buf.m.offset);
-
-	if(cap->state == SAVE_FRAME) hv_err("save frame failed!\n");;
+	if(cap->cmd == SAVE_FRAME) {
+		hv_err("save frame failed!\n");;
 		/*if(save_frame() == -1){
 			hv_err("save frame failed!\n");
 		}*/
-
+		
+		cap->cmd = COMMAND_UNUSED;
+	}
 	ret = ioctl(videofh, VIDIOC_QBUF, &buf);
 	if (ret == -1) {
 		hv_err("VIDIOC_DQBUF failed!");		
 		goto stream_off;
 		
-	}	
+	}
 	return 0;
 	
 stream_off:
@@ -227,7 +251,7 @@ int capture_quit(void *capture)
 int capture_command(void* capture,command state)
 {
 	capture_handle* cap = (capture_handle*)capture;
-	cap->state = state;
+	cap->cmd = state;
 	return 0;
 }
 

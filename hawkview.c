@@ -19,6 +19,8 @@ static pthread_t command_tid;
 void* video_status;
 void* command_status;
 hawkview_handle hawkview;
+int old_hv_cmd = 0;
+struct stat old_stat;
 
 extern int display_register(hawkview_handle* hawkview);
 extern int capture_register(hawkview_handle* hawkview);
@@ -28,16 +30,13 @@ static void* hawkview_video(void* arg)
 	int ret;
 	
 	while(1){
-		hv_dbg("current video state is %d\n",hawkview.state);
+		if (old_hv_cmd != hawkview.state){
+			hv_dbg("current video state is %d\n",hawkview.state);
+			old_hv_cmd = hawkview.state;
+		}
 		if(hawkview.state == VIDEO_EXIT) break;
 		
-		if(hawkview.state == VIDEO_WAIT) return 0;
-
-		if(hawkview.state == START_STREAMMING){
-			hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
-			hawkview.state = VIDEO_START;
-			continue;
-		} 
+		//if(hawkview.state == VIDEO_WAIT) return 0;
 
 		if(hawkview.capture.ops->cap_frame){
 			ret = hawkview.capture.ops->cap_frame((void*)(&hawkview.capture),hawkview.display.ops->disp_set_addr);
@@ -73,17 +72,28 @@ static void* hawkview_command(void* arg)
 int fetch_cmd()
 {
 	int ret = -1;
-	FILE* fp;
+	FILE* fp = NULL;
 	char buf[10];
-	fp = fopen("/data/camera/command","rwb");
-	if(fp){
-		ret = fread(buf,10,10,fp);
-		
-		fclose(fp);
-		ret = atoi(buf);
+	struct stat cmd_stat;
+	ret = lstat("/data/camera/command",&cmd_stat);
+	if(ret == -1){
+		hv_err("can't lstat /data/camera/command,%s\n",strerror(errno));
+		return ret;
 	}
-	hv_dbg("read cmd: %d\n",ret);
-	return 	ret;
+
+	if(cmd_stat.st_ctime != old_stat.st_ctime){
+		old_stat.st_ctime = cmd_stat.st_ctime;
+		fp = fopen("/data/camera/command","rwb");
+		if(fp){
+			ret = fread(buf,10,10,fp);
+			
+			fclose(fp);
+			ret = atoi(buf);
+		}
+		hv_dbg("read cmd: %d\n",ret);
+		return ret;
+	}
+	return 	-2;
 
 		
 	
@@ -92,11 +102,11 @@ int fetch_cmd()
 void alarm_command(int sig)
 {
 	int ret;
-	hv_dbg("hawkview_command state %d\n",hawkview.state);
 	
 	ret = fetch_cmd();
-	if(ret != -1){
+	if(ret >= 0){
 		hawkview.state = ret;
+		hv_dbg("hawkview_command state %d\n",hawkview.state);
 	}
 	else
 		goto set_alarm;
@@ -110,16 +120,16 @@ void alarm_command(int sig)
 	}else if (hawkview.state == SAVE_FRAME){
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),SAVE_FRAME);
 		hawkview.state == COMMAND_WAIT;
-	}else if (hawkview.state == STOP_STREAMMING){
+	}else if (hawkview.state == STOP_STREAMMING){//command:151
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
 		hawkview.state == COMMAND_WAIT;
-	}else if (hawkview.state == START_STREAMMING){
+	}else if (hawkview.state == START_STREAMMING){//command:152
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
 		hawkview.state == COMMAND_WAIT;
-	}else if (hawkview.state == FULL_SCREEN){
+	}else if (hawkview.state == FULL_SCREEN){//command:200
 		hawkview.display.ops->disp_send_command((void*)(&hawkview.display),FULL_SCREEN);
 		hawkview.state == COMMAND_WAIT;
-	}else if (hawkview.state == FULL_CAPTURE){
+	}else if (hawkview.state == FULL_CAPTURE){//command:201
 		hawkview.display.ops->disp_send_command((void*)(&hawkview.display),FULL_CAPTURE);
 		hawkview.state == COMMAND_WAIT;
 	}
@@ -161,18 +171,18 @@ int start_command_thread(hawkview_handle* hawkview)
 int hawkview_init(hawkview_handle* haw)
 {
 	int ret;
-	
+	memset(&old_stat,0,sizeof(struct stat));
 	memset(&hawkview, 0, sizeof(hawkview_handle));
 	memcpy(&hawkview,haw,sizeof(hawkview_handle));
-	hv_err("hawkview video no: %d\n",hawkview.capture.video_no);
-	hv_err("video no: %d\n",haw->capture.video_no);
 	ret = display_register(&hawkview);
 	if(ret == -1){
+		hv_err("display_register failed\n");
 		return -1;
 	}
 
 	ret = capture_register(&hawkview);
 	if(ret == -1){
+		hv_err("capture_register failed\n");		
 		return -1;
 	}
 	
@@ -194,7 +204,7 @@ int hawkview_init(hawkview_handle* haw)
 	else
 		return -1;
 
-	hawkview.capture.state = START_STREAMMING;
+	//hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
 
 	signal(SIGALRM, alarm_command);
     alarm(1);

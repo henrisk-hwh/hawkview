@@ -58,13 +58,19 @@ typedef enum _command
 	SAVE_FRAME 			= 150,
 	STOP_STREAMMING 	= 151,
 	START_STREAMMING	= 152,
-	DO_STREAMMIMG 		= 153,
+
 	
 	//for display	
 	FULL_SCREEN 		= 200,
 	FULL_CAPTURE 		= 201,
 	
 }command;
+
+typedef enum _capture_status
+{
+	STREAM_ON,
+	STREAM_OFF,
+}capture_status;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -117,7 +123,10 @@ typedef struct _capture
 	
 	struct cap_ops *ops;
 	
-	command state;
+	command cmd;
+
+	//for status
+	capture_status status;
 
 }capture_handle;
 
