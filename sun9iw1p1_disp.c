@@ -16,10 +16,35 @@ struct test_layer_info
 	char filename[32];
 	int full_screen;
 };
-
+struct disp_screen
+{
+	int x;
+	int y;
+	int w;
+	int h;
+};
 struct test_layer_info test_info;
 
+static struct disp_screen get_disp_screen(int w1, int h1, int w2, int h2)
+{
+	struct disp_screen screen;
+	float r1,r2,rmin;
+	r1 = (float)w1/(float)w2;
+	r2 = (float)h1/(float)h2;
+	if(r1 < r2){
+		screen.w = w2*r1;
+		screen.h = h2*r1;
+	}else{
+		screen.w = w2*r2;
+		screen.h = h2*r2;
+	}
 
+	screen.x = (w1 - screen.w)/2;	
+	screen.y = (h1 - screen.h)/2;
+	//hv_dbg("w1:%d, h1:%d, w2:%d, h2:%d\n",w1,h1,w2,h2);
+	//hv_dbg("x:%d, y:%d, w:%d, h:%d\n",screen.x,screen.x,screen.w,screen.h);
+	return screen;
+}
 
 static int disp_init(void* display)
 
@@ -119,10 +144,20 @@ static int disp_set_addr(int width, int height, unsigned int *addr)
 		test_info.layer_info.screen_win.height   = height;
 	}
 	else{
+		#if 0
 		test_info.layer_info.screen_win.x = 0;
 		test_info.layer_info.screen_win.y = 0;
 		test_info.layer_info.screen_win.width    = test_info.width;
-		test_info.layer_info.screen_win.height   = test_info.width;
+		test_info.layer_info.screen_win.height   = test_info.height;
+		
+		#endif
+		struct disp_screen screen;
+		screen = get_disp_screen(test_info.width,test_info.height,width,height);
+		test_info.layer_info.screen_win.x = screen.x;
+		test_info.layer_info.screen_win.y = screen.y;
+		test_info.layer_info.screen_win.width    = screen.w;
+		test_info.layer_info.screen_win.height   = screen.h;
+		
 
 	}
 	

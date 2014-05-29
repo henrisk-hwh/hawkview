@@ -10,10 +10,7 @@ int main()
 	hawkview.capture.cap_fps = 30;
 	hawkview.capture.cap_fmt = V4L2_PIX_FMT_NV12;
 	
-	hawkview.display.x = 0;
-	hawkview.display.y = 0;
-	hawkview.display.disp_w = 640;
-	hawkview.display.disp_h = 480;
+
 	hawkview.display.input_w = 640;
 	hawkview.display.input_h = 480;
 	hawkview_init(&hawkview);

@@ -86,11 +86,11 @@ int fetch_cmd()
 		fp = fopen("/data/camera/command","rwb");
 		if(fp){
 			ret = fread(buf,10,10,fp);
-			
+			hv_dbg("read cmd: %s\n",ret);
 			fclose(fp);
 			ret = atoi(buf);
 		}
-		hv_dbg("read cmd: %d\n",ret);
+		
 		return ret;
 	}
 	return 	-2;
