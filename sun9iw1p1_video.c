@@ -16,6 +16,41 @@ static int req_frame_num = 7;
 int old_status = 0;
 int old_vi_cmd = 0;
 
+static int save_frame(void* str,void* start,int w,int h,int format,int is_one_frame)
+{
+	FILE* fd; 
+	int length;
+	switch(format){
+		case V4L2_PIX_FMT_NV12 :
+			length = w*h*3>>1;
+			break;
+		default:
+			hv_err("Unknow src data format\n");
+			
+	}
+	if(is_one_frame)
+			fd = fopen(str,"wrb+");		//save one frame data
+	else			
+			fd = fopen(str,"warb+");		//save more frames
+	if(!fd) {
+			hv_err("Open file error");
+			return -1;
+	}
+	if(fwrite(start,length,1,fd)){
+			hv_dbg("start addr: %x\n",start);
+			hv_dbg("%d x %d\n",w,h);
+			hv_dbg("length: %d\n",length);
+			hv_dbg("Write file successfully\n");
+			fclose(fd);
+			return 0;
+			}
+	else {
+			hv_err("Write file fail\n");
+			fclose(fd);
+			return -1;
+
+	}
+}
 static int capture_init(void* capture)
 {
 	int i;
@@ -204,14 +239,14 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		hv_err("VIDIOC_DQBUF failed!\n");		
 		goto stream_off;		
 	}
+	
 	// set disp buffer
 	if (set_disp_addr)
 		set_disp_addr(cap->cap_w,cap->cap_h,&buf.m.offset);
 	if(cap->cmd == SAVE_FRAME) {
-		hv_err("save frame failed!\n");;
-		/*if(save_frame() == -1){
+		if(save_frame("data/camera/nv12",(void*)(buffers[buf.index].start),cap->cap_w,cap->cap_h,V4L2_PIX_FMT_NV12,1) == -1){
 			hv_err("save frame failed!\n");
-		}*/
+		}
 		
 		cap->cmd = COMMAND_UNUSED;
 	}

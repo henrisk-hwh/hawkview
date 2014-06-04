@@ -83,10 +83,12 @@ int fetch_cmd()
 
 	if(cmd_stat.st_ctime != old_stat.st_ctime){
 		old_stat.st_ctime = cmd_stat.st_ctime;
-		fp = fopen("/data/camera/command","rwb");
+		fp = fopen("/data/camera/command","rwb+");
 		if(fp){
+			//todo flock;
 			ret = fread(buf,10,10,fp);
 			hv_dbg("read cmd: %s\n",ret);
+			//fwrite(cls,10,1,fp);
 			fclose(fp);
 			ret = atoi(buf);
 		}
@@ -204,7 +206,8 @@ int hawkview_init(hawkview_handle* haw)
 	else
 		return -1;
 
-	//hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
+	//start stream first
+	hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
 
 	signal(SIGALRM, alarm_command);
     alarm(1);
