@@ -16,10 +16,11 @@
 static pthread_t video_tid;
 static pthread_t command_tid;
 
-void* video_status;
-void* command_status;
+void* video_ret;
+void* command_ret;
 hawkview_handle hawkview;
 int old_hv_cmd = 0;
+int old_hv_status = 0;
 struct stat old_stat;
 
 extern int display_register(hawkview_handle* hawkview);
@@ -30,25 +31,43 @@ static void* hawkview_video(void* arg)
 	int ret;
 	
 	while(1){
-		if (old_hv_cmd != hawkview.state){
-			hv_dbg("current video state is %d\n",hawkview.state);
-			old_hv_cmd = hawkview.state;
+		if (old_hv_cmd != hawkview.cmd){
+			hv_dbg("current video cmd is %d\n",hawkview.cmd);
+			old_hv_cmd = hawkview.cmd;
 		}
-		if(hawkview.state == VIDEO_EXIT) break;
+		if (old_hv_status != hawkview.status){
+			hv_dbg("current video status is %d\n",hawkview.status);
+			old_hv_status = hawkview.status;
+		}		
+		if(hawkview.status == VIDEO_EXIT) break;//todo , no test
 		
-		//if(hawkview.state == VIDEO_WAIT) return 0;
+		if(hawkview.status == VIDEO_WAIT) {
+			if(hawkview.cmd == SET_CAP_SIZE || hawkview.cmd == START_STREAMMING){
+				hv_dbg("reset video capture\n");
+				ret = hawkview.capture.ops->cap_init((void*)&hawkview.capture);
+				hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
+				hawkview.status = VIDEO_START;
+			}
 
-		if(hawkview.capture.ops->cap_frame){
-			ret = hawkview.capture.ops->cap_frame((void*)(&hawkview.capture),hawkview.display.ops->disp_set_addr);
-		}
-		if(ret == 0) {
-			//hv_dbg("continue\n");
 			continue;
+
 		}
+		if(hawkview.status == VIDEO_START) {
 
-		if(ret == -1)
-			return (void*)-1;
+			if(hawkview.capture.ops->cap_frame){
+				ret = hawkview.capture.ops->cap_frame((void*)(&hawkview.capture),hawkview.display.ops->disp_set_addr);
+			}
+			if(ret == 0) continue;
+			
+			if(ret == 2) {
+				hv_dbg("video wait\n");
+				hawkview.status = VIDEO_WAIT;
+				continue;
+			}
 
+			if(ret == -1)
+				return (void*)-1;
+		}
 	}
 
 	if(hawkview.capture.ops->cap_quit)
@@ -68,34 +87,78 @@ static void* hawkview_command(void* arg)
 	}
 	return 0;
 }
-
+int fetch_sub_cmd(const char* buf,char** cmd,int* cmd_num)
+{
+		int i = 0,j = 0;
+		char size[20];
+		memset(size,0,sizeof(size));
+		if(buf[3] == ':'){
+			hv_err("fetch sub cmd failed,the sub cmd format is invalidity, please make the cmd like:148:xx:xxx# ");
+			return -1;
+		}
+		i = 4;		//the sub cmd start for 4th byte eg:148:1280x720#
+		while(buf[i] != '#'){	//the sub cmd end by '#'
+			
+		}
+}
 int fetch_cmd()
 {
 	int ret = -1;
 	FILE* fp = NULL;
-	char buf[10];
+	char buf[50];
 	struct stat cmd_stat;
 	ret = lstat("/data/camera/command",&cmd_stat);
 	if(ret == -1){
 		hv_err("can't lstat /data/camera/command,%s\n",strerror(errno));
 		return ret;
 	}
-
+	memset(buf,0,sizeof(buf));
 	if(cmd_stat.st_ctime != old_stat.st_ctime){
 		old_stat.st_ctime = cmd_stat.st_ctime;
 		fp = fopen("/data/camera/command","rwb+");
 		if(fp){
 			//todo flock;
-			ret = fread(buf,10,10,fp);
-			hv_dbg("read cmd: %s\n",ret);
+			ret = fread(buf,50,50,fp);
+			hv_dbg("read cmd string: %s\n",buf);
 			//fwrite(cls,10,1,fp);
 			fclose(fp);
 			ret = atoi(buf);
 		}
-		
-		return ret;
+		hv_dbg("fetch -- cmd: %d\n",ret);
+		if(ret == SET_CAP_SIZE){
+			//eg: command string "148:1280x720#"
+			int w,h;
+			int i = 0,j = 0;
+			char size[20];
+			memset(size,0,sizeof(size));
+			if(buf[3] == ':'){
+				i = 4;
+				while(buf[i] != 'x')	size[j++]=buf[i++];
+				size[j+1] = '\0';
+				w = atoi(size);
+				
+				memset(size,0,sizeof(size));
+				j = 0;
+				i++; 
+				while(buf[i] != '#')	size[j++]=buf[i++];
+				size[j+1] = '\0';
+				h = atoi(size);
+				hawkview.capture.set_w = w;
+				hawkview.capture.set_h = h;
+				hv_dbg("set size: %d x %d\n",w,h);
+				
+			}
+		if(ret == SET_CAP_VIDEO){
+			//eg: command string "147:video0:input0#"
+			int i = 0,j = 0;
+			char size[20];
+			memset(size,0,sizeof(size));
+			
+
+		}
+		}
 	}
-	return 	-2;
+	return 	ret;
 
 		
 	
@@ -107,33 +170,38 @@ void alarm_command(int sig)
 	
 	ret = fetch_cmd();
 	if(ret >= 0){
-		hawkview.state = ret;
-		hv_dbg("hawkview_command state %d\n",hawkview.state);
+		//hawkview.state = ret;
+		//hv_dbg("fetch cmd: %d\n",ret);
 	}
 	else
 		goto set_alarm;
 	
-	if (hawkview.state == COMMAND_EXIT){
+	if (ret == COMMAND_EXIT){
 		hv_dbg("hawkview command thread exit!");
 		alarm(0);
 	
-	}else if (hawkview.state == COMMAND_WAIT){
+	}else if (ret == COMMAND_WAIT){
 
-	}else if (hawkview.state == SAVE_FRAME){
+	}else if (ret == SAVE_FRAME){
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),SAVE_FRAME);
-		hawkview.state == COMMAND_WAIT;
-	}else if (hawkview.state == STOP_STREAMMING){//command:151
+
+	}else if (ret == SET_CAP_SIZE){//command:148
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
-		hawkview.state == COMMAND_WAIT;
-	}else if (hawkview.state == START_STREAMMING){//command:152
-		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
-		hawkview.state == COMMAND_WAIT;
-	}else if (hawkview.state == FULL_SCREEN){//command:200
+		hawkview.cmd = SET_CAP_SIZE;
+
+	}else if (ret == STOP_STREAMMING){//command:151
+		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
+		hawkview.cmd = STOP_STREAMMING;
+		
+	}else if (ret == START_STREAMMING){//command:152
+		//hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
+		hawkview.cmd = START_STREAMMING;
+
+	}else if (ret == FULL_SCREEN){//command:200
 		hawkview.display.ops->disp_send_command((void*)(&hawkview.display),FULL_SCREEN);
-		hawkview.state == COMMAND_WAIT;
-	}else if (hawkview.state == FULL_CAPTURE){//command:201
+
+	}else if (ret == FULL_CAPTURE){//command:201
 		hawkview.display.ops->disp_send_command((void*)(&hawkview.display),FULL_CAPTURE);
-		hawkview.state == COMMAND_WAIT;
 	}
 
 set_alarm:	
@@ -207,6 +275,7 @@ int hawkview_init(hawkview_handle* haw)
 		return -1;
 
 	//start stream first
+	hawkview.status = VIDEO_START;
 	hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
 
 	signal(SIGALRM, alarm_command);
@@ -214,7 +283,7 @@ int hawkview_init(hawkview_handle* haw)
 
 	start_video_thread((void*)&hawkview);
 	//start_command_thread((void*)&hawkview);
-	pthread_join(video_tid,&video_status);
+	pthread_join(video_tid,&video_ret);
 	//pthread_join(video_tid,&command_status);
 	
 	return 0;

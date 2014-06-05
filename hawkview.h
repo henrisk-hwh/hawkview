@@ -32,39 +32,17 @@
 
 #include <pthread.h>
 
+#include "command.h"
 #define HAWKVIEW_DBG 1
 
 #if HAWKVIEW_DBG
 #define hv_warn(x,arg...) printf("[hawkview_WARN]"x,##arg)
 #endif
-#define hv_dbg(x,arg...) printf("[hawkview_DBG]"x,##arg)
-#define hv_err(x,arg...) printf("[hawkview_ERR]"x,##arg)
+#define hv_dbg(x,arg...) printf("[hawkview_dbg]"x,##arg)
+#define hv_err(x,arg...) printf("[hawkview_err]"x,##arg)
 
 ///////////////////////////////////////////////////////////////////////////////
-//command
-typedef enum _command
-{
-	COMMAND_UNUSED = 0,
-		
-	//for hawkview
-	COMMAND_EXIT 		= 1,
-	COMMAND_WAIT 		= 2,
 
-	//video
-	VIDEO_EXIT			= 100,
-	VIDEO_WAIT			= 101,
-	VIDEO_START 		= 102,
-	//for video capture
-	SAVE_FRAME 			= 150,
-	STOP_STREAMMING 	= 151,
-	START_STREAMMING	= 152,
-
-	
-	//for display	
-	FULL_SCREEN 		= 200,
-	FULL_CAPTURE 		= 201,
-	
-}command;
 
 typedef enum _capture_status
 {
@@ -72,6 +50,14 @@ typedef enum _capture_status
 	STREAM_OFF,
 }capture_status;
 
+typedef enum _video_status
+{
+	//for video thread
+	VIDEO_EXIT			= 100,
+	VIDEO_WAIT			= 101,
+	VIDEO_START 		= 102,
+
+}video_status;
 
 ///////////////////////////////////////////////////////////////////////////////
 //display
@@ -114,9 +100,15 @@ typedef struct _capture
 {
 	int video_no;		// /dev/video device
 	int subdev_id;		// v4l2 subdevices id
-	
-	int cap_w;
+
+	int set_w;			//request target capture size
+	int set_h;		
+
+	int cap_w;			//supported capture size
 	int cap_h;
+
+	int sub_w;			//sub channel size
+	int sub_h;
 	
 	int cap_fmt;	//capture format
 	int cap_fps;	//capture framerate
@@ -141,8 +133,8 @@ typedef struct _hawkview
 
 	display_handle display;
 
-	command state;
-	
+	command cmd;
+	video_status status;
 }hawkview_handle;
 
 #endif

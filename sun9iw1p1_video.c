@@ -95,8 +95,8 @@ static int capture_init(void* capture)
 	/* set image format */
 	memset(&fmt, 0, sizeof(struct v4l2_format));
 	fmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	fmt.fmt.pix.width       = cap->cap_w;
-	fmt.fmt.pix.height      = cap->cap_h;
+	fmt.fmt.pix.width       = cap->set_w;
+	fmt.fmt.pix.height      = cap->set_h;
 	fmt.fmt.pix.pixelformat = cap->cap_fmt;
 	fmt.fmt.pix.field       = V4L2_FIELD_NONE;
 	if (ioctl(videofh, VIDIOC_S_FMT, &fmt)<0) {
@@ -104,8 +104,8 @@ static int capture_init(void* capture)
 		goto err;
 	}
 	hv_dbg("the tried size is %dx%d,the supported size is %dx%d!\n",\
-				cap->cap_w,		\
-				cap->cap_h, 	\
+				cap->set_w,		\
+				cap->set_h, 	\
 				fmt.fmt.pix.width,	\
 				fmt.fmt.pix.height);
 
@@ -207,8 +207,8 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		}
 		cap->status = STREAM_OFF;
 		cap->cmd = COMMAND_UNUSED;
-		
-		return 0;
+		capture_quit(capture);
+		return 2;
 	}
 
 	if(cap->status == STREAM_OFF) return 0;
@@ -244,12 +244,19 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 	if (set_disp_addr)
 		set_disp_addr(cap->cap_w,cap->cap_h,&buf.m.offset);
 	if(cap->cmd == SAVE_FRAME) {
-		if(save_frame("data/camera/nv12",(void*)(buffers[buf.index].start),cap->cap_w,cap->cap_h,V4L2_PIX_FMT_NV12,1) == -1){
+		if(save_frame("data/camera/nv12",(void*)(buffers[buf.index].start),cap->cap_w,cap->cap_h,cap->cap_fmt,1) == -1){
 			hv_err("save frame failed!\n");
 		}
 		
 		cap->cmd = COMMAND_UNUSED;
 	}
+	if(cap->cmd == SAVE_IMAGE) {
+		if(save_frame("data/camera/image",(void*)(buffers[buf.index].start),cap->cap_w,cap->cap_h,cap->cap_fmt,1) == -1){
+			hv_err("save image failed!\n");
+		}
+		
+		cap->cmd = COMMAND_UNUSED;
+	}	
 	ret = ioctl(videofh, VIDIOC_QBUF, &buf);
 	if (ret == -1) {
 		hv_err("VIDIOC_DQBUF failed!");		

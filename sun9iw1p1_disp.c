@@ -148,8 +148,7 @@ static int disp_set_addr(int width, int height, unsigned int *addr)
 		test_info.layer_info.screen_win.x = 0;
 		test_info.layer_info.screen_win.y = 0;
 		test_info.layer_info.screen_win.width    = test_info.width;
-		test_info.layer_info.screen_win.height   = test_info.height;
-		
+		test_info.layer_info.screen_win.height   = test_info.height;		
 		#endif
 		struct disp_screen screen;
 		screen = get_disp_screen(test_info.width,test_info.height,width,height);

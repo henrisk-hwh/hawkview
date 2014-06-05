@@ -3,8 +3,8 @@ extern int hawkview_init(hawkview_handle* haw);
 int main()
 {
 	hawkview_handle hawkview;
-	hawkview.capture.cap_w = 640;
-	hawkview.capture.cap_h = 480;
+	hawkview.capture.set_w = 1280;
+	hawkview.capture.set_h = 720;
 	hawkview.capture.video_no = 1;
 	hawkview.capture.subdev_id = 0;
 	hawkview.capture.cap_fps = 30;
