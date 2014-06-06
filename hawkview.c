@@ -14,12 +14,15 @@
 #include "hawkview.h"
 
 #define MAX_CMD_NUM 5
+#define CMD_LEN 20
 
-static pthread_t video_tid;
-static pthread_t command_tid;
+static pthread_t 	video_tid;
+static pthread_t 	command_tid;
+static pthread_mutex_t 	video_mutex;
+static pthread_cond_t	video_cond;
 
 void* video_ret;
-void* command_ret;
+void* cmd_ret;
 hawkview_handle hawkview;
 int old_hv_cmd = 0;
 int old_hv_status = 0;
@@ -41,7 +44,7 @@ static void* hawkview_video(void* arg)
 			hv_dbg("current video status is %d\n",hawkview.status);
 			old_hv_status = hawkview.status;
 		}		
-		if(hawkview.status == VIDEO_EXIT) break;//todo , no test
+		if(hawkview.status == VIDEO_EXIT) break;//TODO, no test
 		
 		if(hawkview.status == VIDEO_WAIT) {
 			if(hawkview.cmd == SET_CAP_SIZE || \
@@ -58,6 +61,8 @@ static void* hawkview_video(void* arg)
 
 		}
 		if(hawkview.status == VIDEO_START) {
+			if(hawkview.cmd == STOP_STREAMMING)				
+				hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
 
 			if(hawkview.capture.ops->cap_frame){
 				ret = hawkview.capture.ops->cap_frame((void*)(&hawkview.capture),hawkview.display.ops->disp_set_addr);
@@ -67,6 +72,11 @@ static void* hawkview_video(void* arg)
 			if(ret == 2) {
 				hv_dbg("video wait\n");
 				hawkview.status = VIDEO_WAIT;
+				if(hawkview.cmd == STOP_STREAMMING){
+					//pthread_mutex_lock(&video_mutex);
+					//pthread_cond_wait(&video_cond, &video_mutex);
+					//pthread_mutex_unlock(&video_mutex);
+				}
 				continue;
 			}
 
@@ -83,15 +93,6 @@ static void* hawkview_video(void* arg)
 }
 
 
-
-
-static void* hawkview_command(void* arg)
-{
-	while(1){
-
-	}
-	return 0;
-}
 int fetch_sub_cmd(const char* buf,char** cmd,int* cmd_num,int lenght)
 {
 		int i = 0,j = 0,n = 0;
@@ -101,6 +102,7 @@ static void* hawkview_command(void* arg)
 				*((char*)cmd + n*lenght + j++) = buf[i++];
 				if(j > lenght) {
 					hv_err("sub cmd over long\n");
+					*cmd_num = n + 1;
 					return -1;
 				}
 			}
@@ -125,7 +127,7 @@ int fetch_cmd()
 	int i;
 	FILE* fp = NULL;
 	char buf[50];
-	char cmd[MAX_CMD_NUM][20];
+	char cmd[MAX_CMD_NUM][CMD_LEN];
 	int n = MAX_CMD_NUM;
 	
 	struct stat cmd_stat;
@@ -141,14 +143,18 @@ int fetch_cmd()
 	fp = fopen("/data/camera/command","rwb+");
 	if(fp){
 		//todo flock;
+		if (flock(fp->_fileno, LOCK_EX) != 0){ // file lock_exclusive
+			hv_dbg("file lock by others\n");
+		}
 		memset(buf,0,sizeof(buf));
 		memset(cmd,0,sizeof(cmd));
 		ret = fread(buf,50,50,fp);
-		//hv_dbg("read cmd string: %s\n",buf);
 		fclose(fp);
+		flock(fp->_fileno, LOCK_UN); //unlock
 
 	}
-	ret = fetch_sub_cmd(buf,(char**)cmd,&n,20);
+	hv_dbg("read cmd %s\n",buf);
+	ret = fetch_sub_cmd(buf,(char**)cmd,&n,CMD_LEN);
 	for(i = 0;i < n;i++)
 		hv_dbg("cmd %d: %s\n",i,cmd[i]);
 	
@@ -170,7 +176,7 @@ int fetch_cmd()
 		hawkview.capture.subdev_id = atoi(cmd[2]);
 	}
 	if(ret == SET_CAP_INFO){
-		if (n < 4){hv_err("invalidity cmd num\n");return -1;}
+		if (n < 5){hv_err("invalidity cmd num\n");return -1;}
 		
 		hawkview.capture.video_no = atoi(cmd[1]);
 		hawkview.capture.subdev_id = atoi(cmd[2]);
@@ -178,6 +184,7 @@ int fetch_cmd()
 		hawkview.capture.set_h = atoi(cmd[4]);
 
 	}
+	system("echo 1111 > ./temp");
 	return 	ret;
 
 		
@@ -198,18 +205,18 @@ void alarm_command(int sig)
 	
 	if (ret == COMMAND_EXIT){
 		hv_dbg("hawkview command thread exit!");
-		alarm(0);
+		//alarm(0);
 	
-	}else if (ret == COMMAND_WAIT){
+	}else if (ret == COMMAND_WAIT){//TODO
 
 
 	}else if (ret == SET_CAP_INFO){//command:146
-			hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
-			hawkview.cmd = SET_CAP_INFO;
+		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
+		hawkview.cmd = SET_CAP_INFO;
 
 	}else if (ret == SET_CAP_VIDEO){//command:147
-			hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
-			hawkview.cmd = SET_CAP_VIDEO;
+		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
+		hawkview.cmd = SET_CAP_VIDEO;
 
 	}else if (ret == SET_CAP_SIZE){//command:148
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
@@ -222,11 +229,9 @@ void alarm_command(int sig)
 			hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),SAVE_FRAME);
 
 	}else if (ret == STOP_STREAMMING){//command:151
-		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
 		hawkview.cmd = STOP_STREAMMING;
 		
 	}else if (ret == START_STREAMMING){//command:152
-		//hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
 		hawkview.cmd = START_STREAMMING;
 
 	}else if (ret == FULL_SCREEN){//command:200
@@ -237,10 +242,18 @@ void alarm_command(int sig)
 	}
 
 set_alarm:	
-    alarm(1);
+    //alarm(1);
 
 	
     return;
+}
+
+static void* hawkview_command(void* arg)
+{
+	while(1){
+		alarm_command(1);
+	}
+	return 0;
 }
 
 int start_video_thread(hawkview_handle* hawkview)
@@ -293,7 +306,7 @@ int hawkview_init(hawkview_handle* haw)
 		if(ret == -1) {
 			hv_err("display init fail!\n");
 			return -1;
-		}else hv_dbg("display init sucessfully\n");
+		}else hv_msg("display init sucessfully\n");
 	}
 	#if 0
 	if(hawkview.capture.ops->cap_init){
@@ -307,17 +320,20 @@ int hawkview_init(hawkview_handle* haw)
 	else
 		return -1;
 	#endif
-	//start stream first
+	
+	//pthread_mutex_init(&video_mutex, NULL);
+	//pthread_cond_init(&video_cond, NULL);
+
 	hawkview.status = VIDEO_WAIT;
 	//hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
 
-	signal(SIGALRM, alarm_command);
-    alarm(1);
+	//signal(SIGALRM, alarm_command);
+    //alarm(1);
 
 	start_video_thread((void*)&hawkview);
-	//start_command_thread((void*)&hawkview);
+	start_command_thread((void*)&hawkview);
 	pthread_join(video_tid,&video_ret);
-	//pthread_join(video_tid,&command_status);
+	pthread_join(video_tid,&cmd_ret);
 	
 	return 0;
 }
@@ -326,6 +342,8 @@ int hawkview_init(hawkview_handle* haw)
 
 void hawkview_quit()
 {
-
+	//TODO
+	//pthread_mutex_destroy(&video_mutex);
+	//pthread_cond_destroy(&video_cond);
 }
 

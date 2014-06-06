@@ -224,7 +224,7 @@ int display_register(hawkview_handle* hawkview)
 		return -1;
 	}
 	hawkview->display.ops = &ops;
-	hv_dbg("sunxi9iw1p1 display register sucessfully!\n");
+	hv_msg("sunxi9iw1p1 display register sucessfully!\n");
 	return 0;
 }
 

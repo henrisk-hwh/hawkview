@@ -36,10 +36,14 @@
 #define HAWKVIEW_DBG 1
 
 #if HAWKVIEW_DBG
-#define hv_warn(x,arg...) printf("[hawkview_WARN]"x,##arg)
-#endif
+#define hv_warn(x,arg...) printf("[hawkview_warn]"x,##arg)
 #define hv_dbg(x,arg...) printf("[hawkview_dbg]"x,##arg)
+#else
+#define hv_warn(x,arg...)
+#define hv_dbg(x,arg...) 
+#endif
 #define hv_err(x,arg...) printf("[hawkview_err]"x,##arg)
+#define hv_msg(x,arg...) printf("[hawkview_msg]"x,##arg)
 
 ///////////////////////////////////////////////////////////////////////////////
 

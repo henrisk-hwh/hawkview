@@ -67,7 +67,7 @@ static int capture_init(void* capture)
 	//hv_dbg("cap->video_no:%d\n",cap->video_no);
 	snprintf(dev_name, sizeof(dev_name), "/dev/video%d", cap->video_no);
 
-	hv_dbg("open %s\n", dev_name);
+	hv_msg("open %s\n", dev_name);
 	if ((videofh = open(dev_name, O_RDWR,0)) < 0) {
 		hv_err("can't open %s(%s)\n", dev_name, strerror(errno));
 		goto open_err;
@@ -79,8 +79,12 @@ static int capture_init(void* capture)
 	inp.index = cap->subdev_id;
 	inp.type = V4L2_INPUT_TYPE_CAMERA;
 	if (ioctl(videofh, VIDIOC_S_INPUT, &inp) == -1) {
-		hv_err("VIDIOC_S_INPUT failed!\n");
-		goto err;
+		hv_err("VIDIOC_S_INPUT failed! s_input: %d\n",inp.index);
+		inp.index = (inp.index == 1)?0:1;
+		if (ioctl(videofh, VIDIOC_S_INPUT, &inp) == -1){
+			hv_err("VIDIOC_S_INPUT failed! s_input: %d\n",inp.index);
+			goto err;
+		}
 	}
 
 	parms.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -103,7 +107,7 @@ static int capture_init(void* capture)
 		hv_err("VIDIOC_S_FMT failed!\n");
 		goto err;
 	}
-	hv_dbg("the tried size is %dx%d,the supported size is %dx%d!\n",\
+	hv_msg("the tried size is %dx%d,the supported size is %dx%d!\n",\
 				cap->set_w,		\
 				cap->set_h, 	\
 				fmt.fmt.pix.width,	\
@@ -266,7 +270,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 	return 0;
 	
 stream_off:
-	hv_dbg("err stream off\n");
+	hv_err("err stream off\n");
 	ioctl(videofh, VIDIOC_STREAMOFF, &type);
 quit:
 	capture_quit(capture);
@@ -279,7 +283,7 @@ int capture_quit(void *capture)
 {
 	int i;
 	enum v4l2_buf_type type;
-	hv_dbg("capture quit!\n");
+	hv_msg("capture quit!\n");
 	for (i = 0; i < nbuffers; i++) {
 		hv_dbg("ummap index: %d, mem: %x, len: %x\n",
 				i,(int)buffers[i].start,buffers[i].length);		
@@ -316,7 +320,7 @@ int capture_register(hawkview_handle* hawkview)
 		return -1;
 	}
 	hawkview->capture.ops = &ops;
-	hv_dbg("sunxi9iw1p1 capture register sucessfully!\n");
+	hv_msg("sunxi9iw1p1 capture register sucessfully!\n");
 	return 0;
 }
 
