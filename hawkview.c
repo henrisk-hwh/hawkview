@@ -196,11 +196,7 @@ void alarm_command(int sig)
 	int ret;
 	
 	ret = fetch_cmd();
-	if(ret >= 0){
-		//hawkview.state = ret;
-		//hv_dbg("fetch cmd: %d\n",ret);
-	}
-	else
+	if(ret < 0)
 		goto set_alarm;
 	
 	if (ret == COMMAND_EXIT){
@@ -210,34 +206,37 @@ void alarm_command(int sig)
 	}else if (ret == COMMAND_WAIT){//TODO
 
 
-	}else if (ret == SET_CAP_INFO){//command:146
+	}else if (ret == SET_CAP_INFO){			//command:146
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
 		hawkview.cmd = SET_CAP_INFO;
 
-	}else if (ret == SET_CAP_VIDEO){//command:147
+	}else if (ret == SET_CAP_VIDEO){		//command:147
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
 		hawkview.cmd = SET_CAP_VIDEO;
 
-	}else if (ret == SET_CAP_SIZE){//command:148
+	}else if (ret == SET_CAP_SIZE){			//command:148
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
 		hawkview.cmd = SET_CAP_SIZE;
 
-	}else if (ret == SAVE_IMAGE){//command:149
+	}else if (ret == SAVE_IMAGE){			//command:149
 			hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),SAVE_IMAGE);
 
-	}else if (ret == SAVE_FRAME){//command:150
+	}else if (ret == SAVE_FRAME){			//command:150
 			hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),SAVE_FRAME);
+			
+	}else if (ret == STOP_SAVE_FRAME){		//command:151
+			hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_SAVE_FRAME);
 
-	}else if (ret == STOP_STREAMMING){//command:151
+	}else if (ret == STOP_STREAMMING){		//command:160
 		hawkview.cmd = STOP_STREAMMING;
 		
-	}else if (ret == START_STREAMMING){//command:152
+	}else if (ret == START_STREAMMING){		//command:161
 		hawkview.cmd = START_STREAMMING;
 
-	}else if (ret == FULL_SCREEN){//command:200
+	}else if (ret == FULL_SCREEN){			//command:200
 		hawkview.display.ops->disp_send_command((void*)(&hawkview.display),FULL_SCREEN);
 
-	}else if (ret == FULL_CAPTURE){//command:201
+	}else if (ret == FULL_CAPTURE){			//command:201
 		hawkview.display.ops->disp_send_command((void*)(&hawkview.display),FULL_CAPTURE);
 	}
 

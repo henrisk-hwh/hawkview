@@ -28,8 +28,10 @@ typedef enum _command
 	SET_CAP_SIZE		= 148,		//eg: command string "148:1280x720#"
 	SAVE_IMAGE			= 149,		//eg: command string "149:image_1.yuv#"
 	SAVE_FRAME 			= 150,		//eg: command string "150#"
-	STOP_STREAMMING 	= 151,
-	START_STREAMMING	= 152,
+	STOP_SAVE_FRAME		= 151,		//eg: command string "151#"
+	
+	STOP_STREAMMING 	= 160,
+	START_STREAMMING	= 161,
 
 	
 	//for display	

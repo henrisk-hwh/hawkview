@@ -37,14 +37,33 @@ static int get_framerate(long long secs,long long usecs)
 	return 0;
 	
 }
-static int set_index(int index)
+static int set_sync_status(int index)
 {
-
+	FILE* fp;
+	char sync[20];
+	memset(sync,0,sizeof(sync));
+	fp = fopen("dev/sync","wrb+");
+	if(!fp) {
+			hv_err("Open sync file error");
+			return -1;
+	}	
+	sprintf(sync,"%d", index);
+	//hv_dbg("set sync sattus: %s\n",sync);
+	if(fwrite(sync,sizeof(sync),1,fp)){
+			fclose(fp);
+			return 0;
+	}
+	else{
+			hv_err("Write file fail\n");
+			fclose(fp);
+			return -1;		
+	}
+	
 }
 
 static int save_frame(void* str,void* start,int w,int h,int format,int is_one_frame)
 {
-	FILE* fd; 
+	FILE* fp; 
 	int length;
 	switch(format){
 		case V4L2_PIX_FMT_NV12 :
@@ -55,26 +74,21 @@ static int save_frame(void* str,void* start,int w,int h,int format,int is_one_fr
 			
 	}
 	if(is_one_frame)
-			fd = fopen(str,"wrb+");		//save one frame data
+			fp = fopen(str,"wrb+");		//save one frame data
 	else			
-			fd = fopen(str,"warb+");		//save more frames	//TODO: test
-	if(!fd) {
+			fp = fopen(str,"warb+");		//save more frames	//TODO: test
+	if(!fp) {
 			hv_err("Open file error");
 			return -1;
 	}
-	if(fwrite(start,length,1,fd)){
-			//hv_dbg("start addr: %x\n",start);
-			//hv_dbg("%d x %d\n",w,h);
-			//hv_dbg("length: %d\n",length);
-			//hv_dbg("Write file successfully\n");
-			fclose(fd);
+	if(fwrite(start,length,1,fp)){
+			fclose(fp);
 			return 0;
-			}
+	}
 	else {
 			hv_err("Write file fail\n");
-			fclose(fd);
+			fclose(fp);
 			return -1;
-
 	}
 }
 static int capture_init(void* capture)
@@ -286,17 +300,23 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 	
 	if(cap->cmd == SAVE_FRAME ) {
 		static int index = 0;
-		hv_err("save_frame_gap: %d\n",save_frame_gap);
-		if(!((index++)%save_frame_gap)){
+		static int gap = 0;
+		//hv_err("save_frame_gap: %d\n",gap);
+		if(gap-- == 0){
  			char name[30];
- 			snprintf(name, sizeof(name), "dev/nv12_%d", index);	
-			
-
-			hv_err("frame name: %s\n",name);
-			if(save_frame(name,(void*)(buffers[buf.index].start),cap->cap_w,cap->cap_h,cap->cap_fmt,1) == -1){
+ 			snprintf(name, sizeof(name), "dev/frame_%d", index);
+			//hv_dbg("frame name: %s\n",name);
+			ret = save_frame(name,			\
+						   (void*)(buffers[buf.index].start),	\
+						   cap->cap_w,cap->cap_h,cap->cap_fmt,	\
+						   1);
+			if(ret == -1){
 				hv_err("save frame failed!\n");
 			}
-			if(index > 20) index = 0;
+			set_sync_status(index);
+			if(index >= 20) index = 0;
+			gap = save_frame_gap - 1;
+			index++ ;
 		}
 		//cap->cmd = COMMAND_UNUSED;
 	}
