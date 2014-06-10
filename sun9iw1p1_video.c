@@ -1,5 +1,6 @@
 #include "hawkview.h"
 
+#define DELIVER_FRAMES_RATE 5
 
 struct buffer
 {
@@ -16,6 +17,31 @@ static int req_frame_num = 7;
 int old_status = 0;
 int old_vi_cmd = 0;
 
+int get_framerate_status = 4;
+int save_frame_num = 10;
+int save_frame_gap = 0;
+static int get_framerate(long long secs,long long usecs)
+{
+	static long long timestamp_old = 0;
+	static int rate = 0;
+	long long timestamp;
+	int rate_tmp;
+	timestamp = usecs + secs* 1000000;
+	if((timestamp - timestamp_old) > 1000000){
+		timestamp_old = timestamp;
+		rate_tmp = rate;
+		rate = 0;
+		return rate_tmp;
+	}
+	else rate++;
+	return 0;
+	
+}
+static int set_index(int index)
+{
+
+}
+
 static int save_frame(void* str,void* start,int w,int h,int format,int is_one_frame)
 {
 	FILE* fd; 
@@ -31,16 +57,16 @@ static int save_frame(void* str,void* start,int w,int h,int format,int is_one_fr
 	if(is_one_frame)
 			fd = fopen(str,"wrb+");		//save one frame data
 	else			
-			fd = fopen(str,"warb+");		//save more frames
+			fd = fopen(str,"warb+");		//save more frames	//TODO: test
 	if(!fd) {
 			hv_err("Open file error");
 			return -1;
 	}
 	if(fwrite(start,length,1,fd)){
-			hv_dbg("start addr: %x\n",start);
-			hv_dbg("%d x %d\n",w,h);
-			hv_dbg("length: %d\n",length);
-			hv_dbg("Write file successfully\n");
+			//hv_dbg("start addr: %x\n",start);
+			//hv_dbg("%d x %d\n",w,h);
+			//hv_dbg("length: %d\n",length);
+			//hv_dbg("Write file successfully\n");
 			fclose(fd);
 			return 0;
 			}
@@ -63,7 +89,7 @@ static int capture_init(void* capture)
 
 	cap->status = STREAM_OFF;
 	cap->cmd = COMMAND_UNUSED;
-	
+	get_framerate_status = 4;
 	//hv_dbg("cap->video_no:%d\n",cap->video_no);
 	snprintf(dev_name, sizeof(dev_name), "/dev/video%d", cap->video_no);
 
@@ -243,21 +269,45 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		hv_err("VIDIOC_DQBUF failed!\n");		
 		goto stream_off;		
 	}
-	
+
 	// set disp buffer
 	if (set_disp_addr)
 		set_disp_addr(cap->cap_w,cap->cap_h,&buf.m.offset);
-	if(cap->cmd == SAVE_FRAME) {
-		if(save_frame("data/camera/nv12",(void*)(buffers[buf.index].start),cap->cap_w,cap->cap_h,cap->cap_fmt,1) == -1){
-			hv_err("save frame failed!\n");
+
+	if(get_framerate_status > 0){	//get frame int first 3secs
+		ret = get_framerate((long long)(buf.timestamp.tv_sec),(long long)(buf.timestamp.tv_usec));
+		if(ret > 0){
+			cap->cap_fps = ret;
+			get_framerate_status--;
+			save_frame_gap = cap->cap_fps/DELIVER_FRAMES_RATE;//save frame 5fps
+			hv_err("framerate: %dfps\n",cap->cap_fps);
 		}
-		
-		cap->cmd = COMMAND_UNUSED;
+	}
+	
+	if(cap->cmd == SAVE_FRAME ) {
+		static int index = 0;
+		hv_err("save_frame_gap: %d\n",save_frame_gap);
+		if(!((index++)%save_frame_gap)){
+ 			char name[30];
+ 			snprintf(name, sizeof(name), "dev/nv12_%d", index);	
+			
+
+			hv_err("frame name: %s\n",name);
+			if(save_frame(name,(void*)(buffers[buf.index].start),cap->cap_w,cap->cap_h,cap->cap_fmt,1) == -1){
+				hv_err("save frame failed!\n");
+			}
+			if(index > 20) index = 0;
+		}
+		//cap->cmd = COMMAND_UNUSED;
 	}
 	if(cap->cmd == SAVE_IMAGE) {
-		if(save_frame("data/camera/image",(void*)(buffers[buf.index].start),cap->cap_w,cap->cap_h,cap->cap_fmt,1) == -1){
+		ret = save_frame("data/camera/image",				\
+					  (void*)(buffers[buf.index].start),	\
+					  cap->cap_w,cap->cap_h,cap->cap_fmt,	\
+					  1) ;
+		if(ret == -1)
 			hv_err("save image failed!\n");
-		}
+		
 		
 		cap->cmd = COMMAND_UNUSED;
 	}	

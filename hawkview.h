@@ -31,6 +31,7 @@
 #include <signal.h>
 
 #include <pthread.h>
+#include <time.h>
 
 #include "command.h"
 #define HAWKVIEW_DBG 1
