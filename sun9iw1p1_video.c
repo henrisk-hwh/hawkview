@@ -18,8 +18,6 @@ int old_status = 0;
 int old_vi_cmd = 0;
 
 int get_framerate_status = 4;
-int save_frame_num = 10;
-int save_frame_gap = 0;
 static int get_framerate(long long secs,long long usecs)
 {
 	static long long timestamp_old = 0;
@@ -48,7 +46,7 @@ static int set_sync_status(int index)
 			return -1;
 	}	
 	sprintf(sync,"%d", index);
-	//hv_dbg("set sync sattus: %s\n",sync);
+	hv_dbg("set sync sattus: %s\n",sync);
 	if(fwrite(sync,sizeof(sync),1,fp)){
 			fclose(fp);
 			return 0;
@@ -293,20 +291,21 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		if(ret > 0){
 			cap->cap_fps = ret;
 			get_framerate_status--;
-			save_frame_gap = cap->cap_fps/DELIVER_FRAMES_RATE;//save frame 5fps
-			hv_err("framerate: %dfps\n",cap->cap_fps);
+			hv_dbg("framerate: %dfps\n",cap->cap_fps);
 		}
 	}
 	
 	if(cap->cmd == SAVE_FRAME ) {
 		static int index = 0;
-		static int gap = 0;
-		//hv_err("save_frame_gap: %d\n",gap);
-		if(gap-- == 0){
+		static int interval = 0;
+		int tmp_interval = 5;
+		if(cap->show_rate != 0 && cap->show_rate < cap->cap_fps)
+			tmp_interval = cap->cap_fps/cap->show_rate;
+		if(interval-- == 0){
  			char name[30];
  			snprintf(name, sizeof(name), "dev/frame_%d", index);
 			//hv_dbg("frame name: %s\n",name);
-			ret = save_frame(name,			\
+			ret = save_frame(name,								\
 						   (void*)(buffers[buf.index].start),	\
 						   cap->cap_w,cap->cap_h,cap->cap_fmt,	\
 						   1);
@@ -315,7 +314,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 			}
 			set_sync_status(index);
 			if(index >= 20) index = 0;
-			gap = save_frame_gap - 1;
+			interval = tmp_interval - 1;
 			index++ ;
 		}
 		//cap->cmd = COMMAND_UNUSED;

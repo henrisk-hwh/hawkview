@@ -117,6 +117,8 @@ typedef struct _capture
 	
 	int cap_fmt;	//capture format
 	int cap_fps;	//capture framerate
+
+	int show_rate;	//show framerate
 	
 	struct cap_ops *ops;
 	

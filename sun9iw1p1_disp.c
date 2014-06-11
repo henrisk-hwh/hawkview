@@ -78,7 +78,7 @@ static int disp_init(void* display)
 	test_info.width = ioctl(test_info.dispfh,DISP_CMD_GET_SCN_WIDTH,(void*)arg);	//get screen width and height
 	test_info.height = ioctl(test_info.dispfh,DISP_CMD_GET_SCN_HEIGHT,(void*)arg);		
 	
-	test_info.screen_id = screen_id; //0 for lcd ,1 for hdmi, 2 for edp
+	test_info.screen_id = screen_id; //0 for lcd ,1 for hdmi
 	test_info.layer_id = layer_id;
 	test_info.layer_info.ck_enable        = 0;
 	test_info.layer_info.alpha_mode       = 1; //global alpha

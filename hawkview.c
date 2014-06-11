@@ -13,6 +13,11 @@
 
 #include "hawkview.h"
 
+#define CHECK_CMD_NUM(n,x) 	\
+	if (n < x){	\
+		hv_err("invalidity cmd num\n");	\
+		return -1;	\
+	}
 #define MAX_CMD_NUM 5
 #define CMD_LEN 20
 
@@ -161,8 +166,7 @@ int fetch_cmd()
 	ret = atoi(cmd[0]);
 	if(ret == SET_CAP_SIZE){
 		//eg: command string "148:1280x720#"
-		if (n < 2){hv_err("invalidity cmd num\n");return -1;}
-		
+		CHECK_CMD_NUM(n,2);
 		hawkview.capture.set_w = atoi(cmd[1]);
 		hawkview.capture.set_h = atoi(cmd[2]);
 		hv_dbg("set size: %d x %d\n",hawkview.capture.set_w,hawkview.capture.set_h);		
@@ -170,21 +174,23 @@ int fetch_cmd()
 
 	if(ret == SET_CAP_VIDEO){
 		//eg: command string "147:0:1#"   video:0,s_input:1
-		if (n < 2){hv_err("invalidity cmd num\n");return -1;}
-		
+		CHECK_CMD_NUM(n,2);
 		hawkview.capture.video_no = atoi(cmd[1]);
 		hawkview.capture.subdev_id = atoi(cmd[2]);
 	}
 	if(ret == SET_CAP_INFO){
-		if (n < 5){hv_err("invalidity cmd num\n");return -1;}
-		
+		CHECK_CMD_NUM(n,5);
 		hawkview.capture.video_no = atoi(cmd[1]);
 		hawkview.capture.subdev_id = atoi(cmd[2]);
 		hawkview.capture.set_w = atoi(cmd[3]);
 		hawkview.capture.set_h = atoi(cmd[4]);
 
 	}
-	system("echo 1111 > ./temp");
+	if(ret == SAVE_FRAME){
+		CHECK_CMD_NUM(n,2);
+
+		hawkview.capture.show_rate = atoi(cmd[1]);
+	}
 	return 	ret;
 
 		
