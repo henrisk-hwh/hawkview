@@ -39,6 +39,7 @@ static int set_sync_status(void* capture,int index)
 {
 	FILE* fp;
 	char sync[30];
+	char file_path[20];
 	capture_handle* cap = (capture_handle*)capture;
 	
 	memset(sync,0,sizeof(sync));
@@ -46,12 +47,14 @@ static int set_sync_status(void* capture,int index)
 		//make info sync string
 		//sync string: -1:framrate:capture_w:capture_h,sub_w,sub_h#
 		sprintf(sync,"%d:%d:%dx%d:%dx%d#", index,cap->cap_fps,cap->cap_w,cap->cap_h,cap->sub_w,cap->sub_h);
+		strcpy(file_path,"dev/info");
 	}
-	else
+	else{
 		sprintf(sync,"%d", index);
-
+		strcpy(file_path,"dev/sync");
+	}
 	
-	fp = fopen("dev/sync","wrb+");
+	fp = fopen(file_path,"wrb+");
 	if(!fp) {
 			hv_err("Open sync file error");
 			return -1;
@@ -311,7 +314,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		static int index = 0;
 		static int interval = 0;
 		int tmp_interval = 5;
-		if(cap->show_rate != 0 && cap->show_rate < cap->cap_fps)
+		if((cap->show_rate != 0) && (cap->show_rate < cap->cap_fps) && (cap->show_rate > 0))
 			tmp_interval = cap->cap_fps/cap->show_rate;
 		if(interval-- == 0){
  			char name[30];
