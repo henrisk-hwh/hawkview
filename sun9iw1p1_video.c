@@ -35,17 +35,28 @@ static int get_framerate(long long secs,long long usecs)
 	return 0;
 	
 }
-static int set_sync_status(int index)
+static int set_sync_status(void* capture,int index)
 {
 	FILE* fp;
-	char sync[20];
+	char sync[30];
+	capture_handle* cap = (capture_handle*)capture;
+	
 	memset(sync,0,sizeof(sync));
+	if(index == -1){ 
+		//make info sync string
+		//sync string: -1:framrate:capture_w:capture_h,sub_w,sub_h#
+		sprintf(sync,"%d:%d:%dx%d:%dx%d#", index,cap->cap_fps,cap->cap_w,cap->cap_h,cap->sub_w,cap->sub_h);
+	}
+	else
+		sprintf(sync,"%d", index);
+
+	
 	fp = fopen("dev/sync","wrb+");
 	if(!fp) {
 			hv_err("Open sync file error");
 			return -1;
 	}	
-	sprintf(sync,"%d", index);
+	
 	hv_dbg("set sync sattus: %s\n",sync);
 	if(fwrite(sync,sizeof(sync),1,fp)){
 			fclose(fp);
@@ -291,6 +302,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		if(ret > 0){
 			cap->cap_fps = ret;
 			get_framerate_status--;
+			set_sync_status((void*)cap,-1);
 			hv_dbg("framerate: %dfps\n",cap->cap_fps);
 		}
 	}
@@ -311,11 +323,12 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 						   1);
 			if(ret == -1){
 				hv_err("save frame failed!\n");
-			}
-			set_sync_status(index);
-			if(index >= 20) index = 0;
-			interval = tmp_interval - 1;
+			}			
+			set_sync_status((void*)cap,index);
 			index++ ;
+			if(index > 20) index = 0;
+			interval = tmp_interval - 1;
+			
 		}
 		//cap->cmd = COMMAND_UNUSED;
 	}

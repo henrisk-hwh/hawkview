@@ -3,6 +3,7 @@ extern int hawkview_init(hawkview_handle* haw);
 int main()
 {
 	hawkview_handle hawkview;
+	memset(&hawkview, 0, sizeof(hawkview_handle));
 	hawkview.capture.set_w = 1280;
 	hawkview.capture.set_h = 720;
 	hawkview.capture.video_no = 1;

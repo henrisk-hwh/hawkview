@@ -33,7 +33,7 @@ typedef enum _command
 	STOP_STREAMMING 	= 160,
 	START_STREAMMING	= 161,
 
-	
+
 	//for display	
 	FULL_SCREEN 		= 200,
 	FULL_CAPTURE 		= 201,
