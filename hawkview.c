@@ -188,9 +188,12 @@ int fetch_cmd()
 	}
 	if(ret == SAVE_FRAME){
 		CHECK_CMD_NUM(n,2);
-
 		hawkview.capture.show_rate = atoi(cmd[1]);
 	}
+	if(ret == SAVE_IMAGE){
+		CHECK_CMD_NUM(n,2);
+		strcpy(hawkview.capture.picture.path_name,cmd[1]);
+	}	
 	return 	ret;
 
 		
@@ -225,13 +228,13 @@ void alarm_command(int sig)
 		hawkview.cmd = SET_CAP_SIZE;
 
 	}else if (ret == SAVE_IMAGE){			//command:149
-			hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),SAVE_IMAGE);
+		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),SAVE_IMAGE);
 
 	}else if (ret == SAVE_FRAME){			//command:150
-			hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),SAVE_FRAME);
+		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),SAVE_FRAME);
 			
 	}else if (ret == STOP_SAVE_FRAME){		//command:151
-			hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_SAVE_FRAME);
+		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_SAVE_FRAME);
 
 	}else if (ret == STOP_STREAMMING){		//command:160
 		hawkview.cmd = STOP_STREAMMING;

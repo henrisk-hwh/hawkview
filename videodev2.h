@@ -61,7 +61,7 @@
 #else
 #include <sys/time.h>
 #endif
-#include <linux/compiler.h>
+//#include <linux/compiler.h>
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
@@ -319,7 +319,7 @@ struct isp_exif_attribute {
 };
 
 struct isp_stat_buf {
-	void __user *buf;
+	void  *buf;
 	__u32 buf_size;
 };
 
@@ -741,16 +741,16 @@ struct v4l2_framebuffer {
 
 struct v4l2_clip {
 	struct v4l2_rect        c;
-	struct v4l2_clip	__user *next;
+	struct v4l2_clip	 *next;
 };
 
 struct v4l2_window {
 	struct v4l2_rect        w;
 	enum v4l2_field  	field;
 	__u32			chromakey;
-	struct v4l2_clip	__user *clips;
+	struct v4l2_clip	 *clips;
 	__u32			clipcount;
-	void			__user *bitmap;
+	void			 *bitmap;
 	__u8                    global_alpha;
 };
 

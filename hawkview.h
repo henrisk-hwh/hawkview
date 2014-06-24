@@ -14,7 +14,7 @@
 //debug setting
 #ifndef __HAWKVIEW_H__
 #define __HAWKVIEW_H__
-#include <linux/videodev2.h>
+//#include <linux/videodev2.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -32,6 +32,7 @@
 
 #include <pthread.h>
 #include <time.h>
+#include "videodev2.h"
 
 #include "command.h"
 #define HAWKVIEW_DBG 1
@@ -47,6 +48,9 @@
 #define hv_msg(x,arg...) printf("[hawkview_msg]"x,##arg)
 
 ///////////////////////////////////////////////////////////////////////////////
+#define ALIGN_4K(x) (((x) + (4095)) & ~(4095))
+#define ALIGN_32B(x) (((x) + (31)) & ~(31))
+#define ALIGN_16B(x) (((x) + (15)) & ~(15))
 
 
 typedef enum _capture_status
@@ -93,6 +97,10 @@ typedef struct _display
 
 ///////////////////////////////////////////////////////////////////////////////
 //capture
+typedef struct _image{
+	char path_name[50];
+	struct isp_exif_attribute exif;
+}image;
 struct cap_ops
 {
 	int (*cap_init)(void*);
@@ -106,6 +114,8 @@ typedef struct _capture
 	int video_no;		// /dev/video device
 	int subdev_id;		// v4l2 subdevices id
 
+	int sensor_type;	// yuv or raw sensor
+
 	int set_w;			//request target capture size
 	int set_h;		
 
@@ -118,6 +128,7 @@ typedef struct _capture
 	int cap_fmt;	//capture format
 	int cap_fps;	//capture framerate
 
+	image picture;
 	int show_rate;	//show framerate
 	
 	struct cap_ops *ops;
