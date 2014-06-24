@@ -235,6 +235,7 @@ void alarm_command(int sig)
 			
 	}else if (ret == STOP_SAVE_FRAME){		//command:151
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_SAVE_FRAME);
+		hawkview.capture.save_status = OFF;
 
 	}else if (ret == STOP_STREAMMING){		//command:160
 		hawkview.cmd = STOP_STREAMMING;

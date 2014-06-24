@@ -338,8 +338,8 @@ static int capture_init(void* capture)
 	int i;
 	
 	capture_handle* cap = (capture_handle*)capture;
-
-	cap->status = STREAM_OFF;
+	cap->save_status = OFF;
+	cap->status = OFF;
 	cap->cmd = COMMAND_UNUSED;
 	get_framerate_status = 4;
 
@@ -397,31 +397,31 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		old_status = cap->status;
 	}
 
-	if(cap->status == STREAM_OFF && cap->cmd == START_STREAMMING){
+	if(cap->status == OFF && cap->cmd == START_STREAMMING){
 		hv_dbg("capture start streaming\n");
 		type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		if (ioctl(videofh, VIDIOC_STREAMON, &type) == -1) {
 			hv_err("VIDIOC_STREAMON error\n");
 			goto quit;
 		}
-		cap->status = STREAM_ON;
+		cap->status = ON;
 		cap->cmd = COMMAND_UNUSED;
 		return 0;
 	}
 	
-	if(cap->status == STREAM_ON && cap->cmd == STOP_STREAMMING){
+	if(cap->status == ON && cap->cmd == STOP_STREAMMING){
 		hv_dbg("capture stop streaming\n");
 		if(-1==ioctl(videofh, VIDIOC_STREAMOFF, &type)){
 			hv_err("VIDIOC_STREAMOFF error!\n");
 			goto quit;
 		}
-		cap->status = STREAM_OFF;
+		cap->status = OFF;
 		cap->cmd = COMMAND_UNUSED;
 		capture_quit(capture);
 		return 2;
 	}
 
-	if(cap->status == STREAM_OFF) return 0;
+	if(cap->status == OFF) return 0;
 	FD_ZERO(&fds);
 	FD_SET(videofh, &fds);
 
@@ -478,7 +478,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		}
 	}
 	
-	if(cap->cmd == SAVE_FRAME ) {
+	if(cap->cmd == SAVE_FRAME || cap->save_status == ON ) {
 		static int index = 0;
 		static int interval = 0;
 		int tmp_interval = 5;
@@ -509,10 +509,12 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 			if(index > 20) index = 0;
 			interval = tmp_interval - 1;
 			
+			cap->save_status = ON;
+			cap->cmd = COMMAND_UNUSED;
 		}
 		//cap->cmd = COMMAND_UNUSED;
 	}
-	if(cap->cmd == SAVE_IMAGE) {
+	if(cap->cmd == SAVE_IMAGE ) {
 		char image_name[30];
 		memset(image_name,0,sizeof(image_name));
 		sprintf(image_name,"/data/camera/%s", cap->picture.path_name);		

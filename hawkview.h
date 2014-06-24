@@ -55,8 +55,8 @@
 
 typedef enum _capture_status
 {
-	STREAM_ON,
-	STREAM_OFF,
+	ON,
+	OFF,
 }capture_status;
 
 typedef enum _video_status
@@ -137,7 +137,7 @@ typedef struct _capture
 
 	//for status
 	capture_status status;
-
+	capture_status save_status;
 }capture_handle;
 
 
