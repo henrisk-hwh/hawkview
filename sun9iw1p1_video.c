@@ -36,6 +36,27 @@ static int get_framerate(long long secs,long long usecs)
 	return 0;
 	
 }
+static int write_file(char* file_path,char* string,int lenght )
+{
+	FILE* fp;
+	fp = fopen(file_path,"wrb+");
+	if(!fp) {
+			hv_err("Open sync file error");
+			return -1;
+	}	
+	
+	hv_dbg("write_file: %s\n",string);
+	if(fwrite(string,lenght,1,fp)){
+			fclose(fp);
+			return 0;
+	}
+	else{
+			hv_err("Write file fail\n");
+			fclose(fp);
+			return -1;		
+	}
+}
+
 static int set_image_exif(void* capture){
 	FILE* fp;
 	char exif_str[1000];
@@ -72,26 +93,22 @@ static int set_image_exif(void* capture){
 		exif->flash_fire,				\
 		exif->brightness);
 	hv_err("exif_str:\n %s\n",exif_str);
-	fp = fopen(file_path,"wrb+");
-	if(!fp) {
-		hv_err("Open exif file error");
-		return -1;
-	}	
-	hv_err("1\n");
-	if(fwrite(exif_str,sizeof(exif_str),1,fp)){
-		hv_err("2\n");
-		fclose(fp);
-		hv_err("3\n");
-		return 0;
-	}
-	else{
-		hv_err("Write file fail\n");
-		fclose(fp);
-		return -1;		
-	}	
-	return 0;
+
+	return write_file(file_path,exif_str,sizeof(exif_str));;
 }
 
+static int set_cap_info(void* capture)
+{
+	int ret;
+	char info[30];
+	char file_path[20];
+	capture_handle* cap = (capture_handle*)capture;
+	memset(info,0,sizeof(info));
+	strcpy(file_path,"dev/info");
+	sprintf(info,"%d:%d:%dx%d:%dx%d:%d#", cap->sensor_type,cap->save_status,cap->cap_fps,cap->cap_w,cap->cap_h,cap->sub_w,cap->sub_h);
+	
+	return write_file(file_path,info,sizeof(info));
+}
 static int set_sync_status(void* capture,int index)
 {
 	FILE* fp;
@@ -111,22 +128,7 @@ static int set_sync_status(void* capture,int index)
 		strcpy(file_path,"dev/sync");
 	}
 	
-	fp = fopen(file_path,"wrb+");
-	if(!fp) {
-			hv_err("Open sync file error");
-			return -1;
-	}	
-	
-	hv_dbg("set sync sattus: %s\n",sync);
-	if(fwrite(sync,sizeof(sync),1,fp)){
-			fclose(fp);
-			return 0;
-	}
-	else{
-			hv_err("Write file fail\n");
-			fclose(fp);
-			return -1;		
-	}
+	return write_file(file_path,sync,sizeof(sync));
 	
 }
 
@@ -220,7 +222,15 @@ static int setVideoParams(void* capture)
 		fmt.fmt.pix.subchannel->width = 640;
 		fmt.fmt.pix.subchannel->height = 480;
 		fmt.fmt.pix.subchannel->pixelformat = cap->cap_fmt;
-		fmt.fmt.pix.subchannel->field = V4L2_FIELD_NONE;	
+		fmt.fmt.pix.subchannel->field = V4L2_FIELD_NONE;
+		if(cap->sub_rot != 0)
+			hv_msg("subchannel rot_angle: %d\n",cap->sub_rot);
+			fmt.fmt.pix.subchannel->rot_angle = cap->sub_rot;		
+	}else{
+		if(cap->sub_rot != 0){			
+			hv_msg("rot_angle: %d\n",cap->sub_rot);
+			fmt.fmt.pix.rot_angle = cap->sub_rot;
+		}
 	}
 	if (ioctl(videofh, VIDIOC_S_FMT, &fmt)<0) {
 		hv_err("VIDIOC_S_FMT failed!\n");
@@ -452,52 +462,81 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 
 	//get display addr
 	unsigned int addrPhyY;
-	int disp_h;
-	int disp_w;
+	int target_h;
+	int target_w;
 	addrPhyY = buf.m.offset;
 	if(cap->sensor_type == V4L2_SENSOR_TYPE_RAW){
 		addrPhyY = addrPhyY + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);	
-		disp_h = cap->sub_h;
-		disp_w = cap->sub_w;
+		target_h = cap->sub_h;
+		target_w = cap->sub_w;
 	}else{
-		disp_h = cap->cap_h;
-		disp_w = cap->cap_w;
+		target_h = cap->cap_h;
+		target_w = cap->cap_w;
 	}
-	
+	if(cap->sub_rot == 90 || cap->sub_rot == 270){
+		int tmp;
+		addrPhyY = addrPhyY + ALIGN_4K(ALIGN_16B(target_w) * target_h * 3 >> 1);		
+		tmp = target_h;
+		target_h = target_w;
+		target_w = tmp;
+		
+	}
 	// set disp buffer
 	if (set_disp_addr){		
-		set_disp_addr(disp_w,disp_h,&addrPhyY);
+		set_disp_addr(target_w,target_h,&addrPhyY);
 	}
 	if(get_framerate_status > 0){	//get frame int first 3secs
 		ret = get_framerate((long long)(buf.timestamp.tv_sec),(long long)(buf.timestamp.tv_usec));
 		if(ret > 0){
 			cap->cap_fps = ret;
 			get_framerate_status--;
-			set_sync_status((void*)cap,-1);
+			set_cap_info((void*)cap);
 			hv_dbg("framerate: %dfps\n",cap->cap_fps);
 		}
 	}
+
+	//set capture info
+	if((cap->cmd == SAVE_FRAME 		&& cap->save_status == OFF)	||	\
+	   (cap->cmd == STOP_SAVE_FRAME && cap->save_status == ON)){
+	   cap->save_status = (cap->save_status + 1)%2; 
+		set_cap_info((void*)cap);
+	   cap->save_status = (cap->save_status + 1)%2; 
+	}
+	if(cap->cmd == STOP_SAVE_FRAME && cap->save_status == ON)
+		cap->save_status = OFF;
 	
 	if(cap->cmd == SAVE_FRAME || cap->save_status == ON ) {
 		static int index = 0;
 		static int interval = 0;
 		int tmp_interval = 5;
+		
+		if(cap->cmd == SAVE_FRAME){
+			cap->save_status = ON;
+			cap->cmd = COMMAND_UNUSED;		
+		}
 		if((cap->show_rate != 0) && (cap->show_rate < cap->cap_fps) && (cap->show_rate > 0))
 			tmp_interval = cap->cap_fps/cap->show_rate;
 		if(interval-- == 0){
  			char name[30];
+			int sub_start;
  			snprintf(name, sizeof(name), "dev/frame_%d", index);
-			if(cap->sensor_type == V4L2_SENSOR_TYPE_RAW){
-				int sub_start;
+			if(cap->sensor_type == V4L2_SENSOR_TYPE_RAW){					
 				sub_start = (unsigned int)(buffers[buf.index].start) + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
+				if(cap->sub_rot != 0){
+					sub_start = (unsigned int)(sub_start) + ALIGN_4K(ALIGN_16B(cap->sub_w) * cap->sub_h * 3 >> 1);
+				}
 				ret = save_frame(name,								\
 							   (void*)sub_start,					\
 							   cap->sub_w,cap->sub_h,cap->cap_fmt,	\
 							   1);
 			}
 			else{
+				sub_start = (unsigned int)(buffers[buf.index].start);
+				if(cap->sub_rot != 0){
+					sub_start = sub_start + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
+				}				
 				ret = save_frame(name,								\
-							   (void*)(buffers[buf.index].start),	\
+							   (void*)sub_start,					\
 							   cap->cap_w,cap->cap_h,cap->cap_fmt,	\
 							   1);
 			}
@@ -509,8 +548,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 			if(index > 20) index = 0;
 			interval = tmp_interval - 1;
 			
-			cap->save_status = ON;
-			cap->cmd = COMMAND_UNUSED;
+
 		}
 		//cap->cmd = COMMAND_UNUSED;
 	}

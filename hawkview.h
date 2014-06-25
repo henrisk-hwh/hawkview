@@ -55,8 +55,8 @@
 
 typedef enum _capture_status
 {
-	ON,
-	OFF,
+	ON	=	1,
+	OFF	=	0,
 }capture_status;
 
 typedef enum _video_status
@@ -124,6 +124,7 @@ typedef struct _capture
 
 	int sub_w;			//sub channel size
 	int sub_h;
+	int sub_rot;		//sub channel rotation
 	
 	int cap_fmt;	//capture format
 	int cap_fps;	//capture framerate

@@ -193,7 +193,11 @@ int fetch_cmd()
 	if(ret == SAVE_IMAGE){
 		CHECK_CMD_NUM(n,2);
 		strcpy(hawkview.capture.picture.path_name,cmd[1]);
-	}	
+	}
+	if(ret == SET_SUB_ROT){
+		CHECK_CMD_NUM(n,2);
+		hawkview.capture.sub_rot = atoi(cmd[1]);
+	}
 	return 	ret;
 
 		
@@ -214,6 +218,9 @@ void alarm_command(int sig)
 	
 	}else if (ret == COMMAND_WAIT){//TODO
 
+	}else if (ret == SET_SUB_ROT){			//command:145
+		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
+		hawkview.cmd = SET_CAP_VIDEO;
 
 	}else if (ret == SET_CAP_INFO){			//command:146
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
@@ -235,7 +242,6 @@ void alarm_command(int sig)
 			
 	}else if (ret == STOP_SAVE_FRAME){		//command:151
 		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_SAVE_FRAME);
-		hawkview.capture.save_status = OFF;
 
 	}else if (ret == STOP_STREAMMING){		//command:160
 		hawkview.cmd = STOP_STREAMMING;
