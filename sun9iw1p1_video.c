@@ -163,6 +163,41 @@ static int save_frame(void* str,void* start,int w,int h,int format,int is_one_fr
 	}
 }
 
+static int setVflipHflip(void* capture)
+{
+	int ret = -1;
+	struct v4l2_control ctrl;
+	capture_handle* cap = (capture_handle*)capture;
+	hv_msg("set vflip and hflip\n");
+	
+	if(cap->sensor_type == 0){
+		ctrl.id = V4L2_CID_VFLIP;
+		ctrl.value = 1;
+		ret = ioctl(videofh, VIDIOC_S_CTRL, &ctrl);
+		if (ret != 0)
+			hv_err("set vflip fail\n");
+
+		ctrl.id = V4L2_CID_HFLIP;
+		ctrl.value = 1;
+		ret = ioctl(videofh, VIDIOC_S_CTRL, &ctrl);
+		if (ret != 0)
+			hv_err("set hflip fail\n");
+	}else{
+		ctrl.id = V4L2_CID_VFLIP_THUMB;
+		ctrl.value = 1;
+		ret = ioctl(videofh, VIDIOC_S_CTRL, &ctrl);
+		if (ret != 0)
+			hv_err("set vflip fail\n");
+
+		ctrl.id = V4L2_CID_HFLIP_THUMB;
+		ctrl.value = 1;
+		ret = ioctl(videofh, VIDIOC_S_CTRL, &ctrl);
+		if (ret != 0)
+			hv_err("set hflip fail\n");
+
+	}	
+	return ret;
+}
 static int openDevice(void* capture)
 {
 	char dev_name[32];
@@ -364,6 +399,8 @@ static int capture_init(void* capture)
 	if(ret == -1)
 		goto err;
 
+	if(cap->sub_rot == 180)
+		setVflipHflip(capture);
 	ret = reqBuffers(capture);
 	if(ret == -1)
 		goto err;
@@ -522,7 +559,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
  			snprintf(name, sizeof(name), "dev/frame_%d", index);
 			if(cap->sensor_type == V4L2_SENSOR_TYPE_RAW){					
 				sub_start = (unsigned int)(buffers[buf.index].start) + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
-				if(cap->sub_rot != 0){
+				if(cap->sub_rot == 90 || cap->sub_rot == 270){
 					sub_start = (unsigned int)(sub_start) + ALIGN_4K(ALIGN_16B(cap->sub_w) * cap->sub_h * 3 >> 1);
 				}
 				ret = save_frame(name,								\
@@ -532,7 +569,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 			}
 			else{
 				sub_start = (unsigned int)(buffers[buf.index].start);
-				if(cap->sub_rot != 0){
+				if(cap->sub_rot == 90 || cap->sub_rot == 270){
 					sub_start = sub_start + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
 				}				
 				ret = save_frame(name,								\

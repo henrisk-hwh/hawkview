@@ -44,8 +44,8 @@
 #define hv_warn(x,arg...)
 #define hv_dbg(x,arg...) 
 #endif
-#define hv_err(x,arg...) printf("[hawkview_err]"x,##arg)
-#define hv_msg(x,arg...) printf("[hawkview_msg]"x,##arg)
+#define hv_err(x,arg...) printf("[hawkview_err]xxxx"x,##arg)
+#define hv_msg(x,arg...) printf("[hawkview_msg]----"x,##arg)
 
 ///////////////////////////////////////////////////////////////////////////////
 #define ALIGN_4K(x) (((x) + (4095)) & ~(4095))
