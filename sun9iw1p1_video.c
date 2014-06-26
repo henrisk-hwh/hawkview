@@ -105,6 +105,7 @@ static int set_cap_info(void* capture)
 	capture_handle* cap = (capture_handle*)capture;
 	memset(info,0,sizeof(info));
 	strcpy(file_path,"dev/info");
+	//sync string: sensor_type:save_status:framrate:capture_w:capture_h,sub_w,sub_h#
 	sprintf(info,"%d:%d:%dx%d:%dx%d:%d#", cap->sensor_type,cap->save_status,cap->cap_fps,cap->cap_w,cap->cap_h,cap->sub_w,cap->sub_h);
 	
 	return write_file(file_path,info,sizeof(info));
@@ -560,7 +561,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 			if(cap->sensor_type == V4L2_SENSOR_TYPE_RAW){					
 				sub_start = (unsigned int)(buffers[buf.index].start) + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
 				if(cap->sub_rot == 90 || cap->sub_rot == 270){
-					sub_start = (unsigned int)(sub_start) + ALIGN_4K(ALIGN_16B(cap->sub_w) * cap->sub_h * 3 >> 1);
+					//sub_start = (unsigned int)(sub_start) + ALIGN_4K(ALIGN_16B(cap->sub_w) * cap->sub_h * 3 >> 1);
 				}
 				ret = save_frame(name,								\
 							   (void*)sub_start,					\
@@ -570,7 +571,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 			else{
 				sub_start = (unsigned int)(buffers[buf.index].start);
 				if(cap->sub_rot == 90 || cap->sub_rot == 270){
-					sub_start = sub_start + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
+					//sub_start = sub_start + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
 				}				
 				ret = save_frame(name,								\
 							   (void*)sub_start,					\

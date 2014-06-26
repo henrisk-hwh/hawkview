@@ -23,7 +23,7 @@ typedef enum _command
 	COMMAND_WAIT 		= 2,
 
 	//for video capture
-	SET_SUB_ROT			= 145,		//eg: command string "145:90"
+	SET_SUB_ROT			= 145,		//eg: command string "145:90#"
 	SET_CAP_INFO		= 146,		//eg: command string "146:0:1:1280x720#" video:0,s_input:1,size:1280x720
 	SET_CAP_VIDEO		= 147,		//eg: command string "147:0:1#"   video:0,s_input:1
 	SET_CAP_SIZE		= 148,		//eg: command string "148:1280x720#"
