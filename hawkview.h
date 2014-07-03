@@ -127,9 +127,11 @@ typedef struct _capture
 	int sub_rot;		//sub channel rotation
 	
 	int cap_fmt;	//capture format
-	int cap_fps;	//capture framerate
+	float cap_fps;	//capture framerate
 
-	image picture;
+	image picture;	//take the yuv picture
+	image frame;	//capture frame
+	
 	int show_rate;	//show framerate
 	
 	struct cap_ops *ops;

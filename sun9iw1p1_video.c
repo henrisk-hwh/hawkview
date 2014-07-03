@@ -19,21 +19,48 @@ int old_vi_cmd = 0;
 
 int get_framerate_status = 4;
 
-static int get_framerate(long long secs,long long usecs)
+static int is_x_sec(int sec,long long secs,long long usecs)
 {
 	static long long timestamp_old = 0;
-	static int rate = 0;
+	long long timestamp = usecs + secs* 1000000;
+	if(timestamp_old == 0)
+		timestamp_old = timestamp;
+	if((timestamp - timestamp_old) > sec*1000000){
+		timestamp_old = timestamp;
+		return 1;
+	}	
+	return 0;
+	
+}
+static float get_framerate(long long secs,long long usecs)
+{
+	static long long timestamp_old = 0;
 	long long timestamp;
-	int rate_tmp;
+	long long rate;
 	timestamp = usecs + secs* 1000000;
+	rate = timestamp - timestamp_old;
+	if(rate == 0 || timestamp_old == 0){
+		timestamp_old = timestamp;
+		return 0.0;
+	}
+
+	//hv_dbg("rate: %0.2f\n",1000000/(float)rate);
+	timestamp_old = timestamp;
+	return 1000000/(float)rate;
+
+	#if 0
+	static int rate = 0;
+	
+	float rate_tmp;
 	if((timestamp - timestamp_old) > 1000000){
 		timestamp_old = timestamp;
-		rate_tmp = rate;
+		rate_tmp = (float)rate/(float)1;
 		rate = 0;
 		return rate_tmp;
 	}
 	else rate++;
-	return 0;
+	#endif
+	return 0.0;
 	
 }
 static int write_file(char* file_path,char* string,int lenght )
@@ -45,7 +72,7 @@ static int write_file(char* file_path,char* string,int lenght )
 			return -1;
 	}	
 	
-	hv_dbg("write_file: %s\n",string);
+	//hv_dbg("%s: %s\n",file_path,string);
 	if(fwrite(string,lenght,1,fp)){
 			fclose(fp);
 			return 0;
@@ -56,16 +83,48 @@ static int write_file(char* file_path,char* string,int lenght )
 			return -1;		
 	}
 }
-
-static int set_image_exif(void* capture){
-	FILE* fp;
+static int make_exif_info(char* exif_str,char* name, struct isp_exif_attribute *exif,int w,int h)
+{
+	sprintf(exif_str,						\
+				 "image name:      %s\n" 	\
+				 "width:           = %d\n"	\
+				 "height:          = %d\n"	\
+				 "exp_time_num:    = %d\n"	\
+				 "exp_time_den:    = %d\n"	\
+				 "sht_speed_num:   = %d\n"	\
+				 "sht_speed_den:   = %d\n"	\
+				 "fnumber:         = %d\n"	\
+				 "exp_bias:        = %d\n"	\
+				 "foc_lenght:      = %d\n"	\
+				 "iso_speed:       = %d\n"	\
+				 "flash_fire:      = %d\n"	\
+				 "brightness:      = %d\n#",	\
+	name,			\
+	w,						\
+	h,						\
+	exif->exposure_time.numerator,	\
+	exif->exposure_time.denominator,\
+	exif->shutter_speed.numerator,	\
+	exif->shutter_speed.denominator,\
+	exif->fnumber,					\
+	exif->exposure_bias,			\
+	exif->focal_length,				\
+	exif->iso_speed,				\
+	exif->flash_fire,				\
+	exif->brightness);
+	return 0;
+}
+static int set_exif_info(void* capture){
 	char exif_str[1000];
 	char file_path[50];
 	capture_handle* cap = (capture_handle*)capture;
 	struct isp_exif_attribute *exif = &(cap->picture.exif);
 	memset(exif_str,0,sizeof(exif_str));
-	sprintf(file_path,"/data/camera/%s_exif",cap->picture.path_name);
-	hv_dbg("file_path: %s\n",file_path);
+	sprintf(file_path,"/data/camera/%s.exif",cap->picture.path_name);
+	exif = &(cap->picture.exif);
+	make_exif_info(exif_str,cap->picture.path_name,exif,cap->cap_w,cap->cap_h);
+#if 0
+	//hv_dbg("file_path: %s\n",file_path);
 	sprintf(exif_str,"image name:       %s\n" 	\
 					 "width:            %d\n"	\
 					 "height:           %d\n"	\
@@ -93,21 +152,37 @@ static int set_image_exif(void* capture){
 		exif->flash_fire,				\
 		exif->brightness);
 	hv_err("exif_str:\n %s\n",exif_str);
-
+#endif
 	return write_file(file_path,exif_str,sizeof(exif_str));;
 }
 
 static int set_cap_info(void* capture)
 {
 	int ret;
-	char info[30];
+	char info[1000];
+	char exif[1000];
 	char file_path[20];
 	capture_handle* cap = (capture_handle*)capture;
 	memset(info,0,sizeof(info));
 	strcpy(file_path,"dev/info");
 	//sync string: sensor_type:save_status:framrate:capture_w:capture_h,sub_w,sub_h#
-	sprintf(info,"%d:%d:%dx%d:%dx%d:%d#", cap->sensor_type,cap->save_status,cap->cap_fps,cap->cap_w,cap->cap_h,cap->sub_w,cap->sub_h);
-	
+	sprintf(info,	\
+				 "sensor_type:     = %s\n" 		\
+				 "status:          = %d\n"		\
+				 "framerate:       = %0.2f\n"	\
+				 "subchanel_width  = %d\n"		\
+				 "subchanel_height = %d\n"		\
+				 "rotation         = %d\n\n",		\
+			 (cap->sensor_type == 1)?"raw":"yuv",	\
+			 cap->save_status,	\
+			 cap->cap_fps,		\
+			 cap->sub_w,		\
+			 cap->sub_h,		\
+			 cap->sub_rot);
+
+	make_exif_info(exif,"none",&(cap->frame.exif),cap->cap_w,cap->cap_h);
+	strcat(info,exif);
+	hv_err("exif_str:\n %s\n",info);
 	return write_file(file_path,info,sizeof(info));
 }
 static int set_sync_status(void* capture,int index)
@@ -118,16 +193,9 @@ static int set_sync_status(void* capture,int index)
 	capture_handle* cap = (capture_handle*)capture;
 	
 	memset(sync,0,sizeof(sync));
-	if(index == -1){ 
-		//make info sync string
-		//sync string: -1:framrate:capture_w:capture_h,sub_w,sub_h#
-		sprintf(sync,"%d:%d:%dx%d:%dx%d#", index,cap->cap_fps,cap->cap_w,cap->cap_h,cap->sub_w,cap->sub_h);
-		strcpy(file_path,"dev/info");
-	}
-	else{
-		sprintf(sync,"%d", index);
-		strcpy(file_path,"dev/sync");
-	}
+
+	sprintf(sync,"%d", index);
+	strcpy(file_path,"dev/sync");
 	
 	return write_file(file_path,sync,sizeof(sync));
 	
@@ -339,15 +407,14 @@ static int reqBuffers(void* capture)
 	
 	
 }
-static int getExifInfo(void* capture)
+static int getExifInfo(struct isp_exif_attribute *exif)
 {
 	int ret = -1;
-	capture_handle* cap = (capture_handle*)capture;
 	if (videofh == NULL)
 	{
 		return 0xFF000000;
 	}
-	ret = ioctl(videofh, VIDIOC_ISP_EXIF_REQ, &(cap->picture.exif));
+	ret = ioctl(videofh, VIDIOC_ISP_EXIF_REQ, exif);
 	return ret;
 }
 
@@ -523,14 +590,16 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 	if (set_disp_addr){		
 		set_disp_addr(target_w,target_h,&addrPhyY);
 	}
-	if(get_framerate_status > 0){	//get frame int first 3secs
-		ret = get_framerate((long long)(buf.timestamp.tv_sec),(long long)(buf.timestamp.tv_usec));
-		if(ret > 0){
-			cap->cap_fps = ret;
-			get_framerate_status--;
-			set_cap_info((void*)cap);
-			hv_dbg("framerate: %dfps\n",cap->cap_fps);
-		}
+	
+	float framerate;		
+	framerate = get_framerate((long long)(buf.timestamp.tv_sec),(long long)(buf.timestamp.tv_usec));
+	if(framerate > 1.0){
+		cap->cap_fps = framerate;
+		//hv_dbg("framerate: %0.2ffps\n",cap->cap_fps);
+	}
+	if(is_x_sec(1,(long long)(buf.timestamp.tv_sec),(long long)(buf.timestamp.tv_usec))){
+		getExifInfo(&(cap->frame.exif));
+		set_cap_info((void*)cap);
 	}
 
 	//set capture info
@@ -596,10 +665,10 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		sprintf(image_name,"/data/camera/%s", cap->picture.path_name);		
 		hv_dbg("image_name: %s\n",image_name);		
 
-		ret = getExifInfo(capture);
+		ret = getExifInfo(&(cap->picture.exif));
 		if(ret == 0)
-			set_image_exif(capture);
-		hv_dbg("--------set_image_exif end\n");
+			set_exif_info(capture);
+		hv_dbg("--------set_exif_info end\n");
 		ret = save_frame(image_name,				\
 					  (void*)(buffers[buf.index].start),	\
 					  cap->cap_w,cap->cap_h,cap->cap_fmt,	\
@@ -644,6 +713,7 @@ int capture_quit(void *capture)
 int capture_command(void* capture,command state)
 {
 	capture_handle* cap = (capture_handle*)capture;
+	//todo: add metux
 	cap->cmd = state;
 	return 0;
 }
