@@ -86,7 +86,7 @@ static int write_file(char* file_path,char* string,int lenght )
 static int make_exif_info(char* exif_str,char* name, struct isp_exif_attribute *exif,int w,int h)
 {
 	sprintf(exif_str,						\
-				 "image name:      %s\n" 	\
+				 "image name:      = %s\n" 	\
 				 "width:           = %d\n"	\
 				 "height:          = %d\n"	\
 				 "exp_time_num:    = %d\n"	\
@@ -182,7 +182,7 @@ static int set_cap_info(void* capture)
 
 	make_exif_info(exif,"none",&(cap->frame.exif),cap->cap_w,cap->cap_h);
 	strcat(info,exif);
-	hv_err("exif_str:\n %s\n",info);
+	hv_err("info str:\n%s\n",info);
 	return write_file(file_path,info,sizeof(info));
 }
 static int set_sync_status(void* capture,int index)
