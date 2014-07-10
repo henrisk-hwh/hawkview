@@ -323,8 +323,8 @@ static int setVideoParams(void* capture)
 
 	if(cap->sensor_type == V4L2_SENSOR_TYPE_RAW){
 		fmt.fmt.pix.subchannel = &sub_fmt;
-		fmt.fmt.pix.subchannel->width = 640;
-		fmt.fmt.pix.subchannel->height = 480;
+		fmt.fmt.pix.subchannel->width = cap->sub_w;
+		fmt.fmt.pix.subchannel->height = cap->sub_h;
 		fmt.fmt.pix.subchannel->pixelformat = cap->cap_fmt;
 		fmt.fmt.pix.subchannel->field = V4L2_FIELD_NONE;
 		if(cap->sub_rot != 0)
