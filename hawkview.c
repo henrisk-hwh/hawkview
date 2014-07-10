@@ -21,14 +21,6 @@
 #define MAX_CMD_NUM 5
 #define CMD_LEN 20
 
-static pthread_t 	video_tid;
-static pthread_t 	command_tid;
-static pthread_mutex_t 	video_mutex;
-static pthread_cond_t	video_cond;
-
-void* video_ret;
-void* cmd_ret;
-hawkview_handle hawkview;
 int old_hv_cmd = 0;
 int old_hv_status = 0;
 struct stat old_stat;
@@ -36,48 +28,48 @@ struct stat old_stat;
 extern int display_register(hawkview_handle* hawkview);
 extern int capture_register(hawkview_handle* hawkview);
 
-static void* hawkview_video(void* arg)
+static void* hawkview_video_thread(void* arg)
 {
 	int ret;
-	
+	hawkview_handle* hv = (hawkview_handle*)arg;
 	while(1){
-		if (old_hv_cmd != hawkview.cmd){
-			hv_dbg("current video cmd is %d\n",hawkview.cmd);
-			old_hv_cmd = hawkview.cmd;
+		if (old_hv_cmd != hv->cmd){
+			hv_dbg("current video cmd is %d\n",hv->cmd);
+			old_hv_cmd = hv->cmd;
 		}
-		if (old_hv_status != hawkview.status){
-			hv_dbg("current video status is %d\n",hawkview.status);
-			old_hv_status = hawkview.status;
+		if (old_hv_status != hv->status){
+			hv_dbg("current video status is %d\n",hv->status);
+			old_hv_status = hv->status;
 		}		
-		if(hawkview.status == VIDEO_EXIT) break;//TODO, no test
+		if(hv->status == VIDEO_EXIT) break;//TODO, no test
 		
-		if(hawkview.status == VIDEO_WAIT) {
-			if(hawkview.cmd == SET_CAP_SIZE || \
-			   hawkview.cmd == START_STREAMMING ||\
-			   hawkview.cmd == SET_CAP_VIDEO ||\
-			   hawkview.cmd == SET_CAP_INFO){
+		if(hv->status == VIDEO_WAIT) {
+			if(hv->cmd == SET_CAP_SIZE || \
+			   hv->cmd == START_STREAMMING ||\
+			   hv->cmd == SET_CAP_VIDEO ||\
+			   hv->cmd == SET_CAP_INFO){
 				hv_dbg("reset video capture\n");
-				ret = hawkview.capture.ops->cap_init((void*)&hawkview.capture);
-				hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
-				hawkview.status = VIDEO_START;
+				ret = hv->capture.ops->cap_init((void*)&hv->capture);
+				hv->capture.ops->cap_send_command((void*)(&hv->capture),START_STREAMMING);
+				hv->status = VIDEO_START;
 			}
 
 			continue;
 
 		}
-		if(hawkview.status == VIDEO_START) {
-			if(hawkview.cmd == STOP_STREAMMING)				
-				hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
+		if(hv->status == VIDEO_START) {
+			if(hv->cmd == STOP_STREAMMING)				
+				hv->capture.ops->cap_send_command((void*)(&hv->capture),STOP_STREAMMING);
 
-			if(hawkview.capture.ops->cap_frame){
-				ret = hawkview.capture.ops->cap_frame((void*)(&hawkview.capture),hawkview.display.ops->disp_set_addr);
+			if(hv->capture.ops->cap_frame){
+				ret = hv->capture.ops->cap_frame((void*)(&hv->capture),hv->display.ops->disp_set_addr);
 			}
 			if(ret == 0) continue;
 			
 			if(ret == 2) {
 				hv_dbg("video wait\n");
-				hawkview.status = VIDEO_WAIT;
-				if(hawkview.cmd == STOP_STREAMMING){
+				hv->status = VIDEO_WAIT;
+				if(hv->cmd == STOP_STREAMMING){
 					//pthread_mutex_lock(&video_mutex);
 					//pthread_cond_wait(&video_cond, &video_mutex);
 					//pthread_mutex_unlock(&video_mutex);
@@ -90,8 +82,8 @@ static void* hawkview_video(void* arg)
 		}
 	}
 
-	if(hawkview.capture.ops->cap_quit)
-		hawkview.capture.ops->cap_quit((void*)(&hawkview.capture));
+	if(hv->capture.ops->cap_quit)
+		hv->capture.ops->cap_quit((void*)(&hv->capture));
 		
 	return (void*)0;
 
@@ -126,7 +118,7 @@ static void* hawkview_video(void* arg)
 		*cmd_num = n;
 		return 0;
 }
-int fetch_cmd()
+int fetch_cmd(hawkview_handle* hv)
 {
 	int ret = 0;
 	int i;
@@ -167,36 +159,36 @@ int fetch_cmd()
 	if(ret == SET_CAP_SIZE){
 		//eg: command string "148:1280x720#"
 		CHECK_CMD_NUM(n,2);
-		hawkview.capture.set_w = atoi(cmd[1]);
-		hawkview.capture.set_h = atoi(cmd[2]);
-		hv_dbg("set size: %d x %d\n",hawkview.capture.set_w,hawkview.capture.set_h);		
+		hv->capture.set_w = atoi(cmd[1]);
+		hv->capture.set_h = atoi(cmd[2]);
+		hv_dbg("set size: %d x %d\n",hv->capture.set_w,hv->capture.set_h);		
 	}
 
 	if(ret == SET_CAP_VIDEO){
 		//eg: command string "147:0:1#"   video:0,s_input:1
 		CHECK_CMD_NUM(n,2);
-		hawkview.capture.video_no = atoi(cmd[1]);
-		hawkview.capture.subdev_id = atoi(cmd[2]);
+		hv->capture.video_no = atoi(cmd[1]);
+		hv->capture.subdev_id = atoi(cmd[2]);
 	}
 	if(ret == SET_CAP_INFO){
 		CHECK_CMD_NUM(n,5);
-		hawkview.capture.video_no = atoi(cmd[1]);
-		hawkview.capture.subdev_id = atoi(cmd[2]);
-		hawkview.capture.set_w = atoi(cmd[3]);
-		hawkview.capture.set_h = atoi(cmd[4]);
+		hv->capture.video_no = atoi(cmd[1]);
+		hv->capture.subdev_id = atoi(cmd[2]);
+		hv->capture.set_w = atoi(cmd[3]);
+		hv->capture.set_h = atoi(cmd[4]);
 
 	}
 	if(ret == SAVE_FRAME){
 		CHECK_CMD_NUM(n,2);
-		hawkview.capture.show_rate = atoi(cmd[1]);
+		hv->capture.show_rate = atoi(cmd[1]);
 	}
 	if(ret == SAVE_IMAGE){
 		CHECK_CMD_NUM(n,2);
-		strcpy(hawkview.capture.picture.path_name,cmd[1]);
+		strcpy(hv->capture.picture.path_name,cmd[1]);
 	}
 	if(ret == SET_SUB_ROT){
 		CHECK_CMD_NUM(n,2);
-		hawkview.capture.sub_rot = atoi(cmd[1]);
+		hv->capture.sub_rot = atoi(cmd[1]);
 	}
 	return 	ret;
 
@@ -204,78 +196,79 @@ int fetch_cmd()
 	
 	
 }
-void alarm_command(int sig)
+void send_command(hawkview_handle* hv,int cmd)
 {
-	int ret;
 	
-	ret = fetch_cmd();
-	if(ret < 0)
-		goto set_alarm;
-	
-	if (ret == COMMAND_EXIT){
-		hv_dbg("hawkview command thread exit!");
-		//alarm(0);
-	
-	}else if (ret == COMMAND_WAIT){//TODO
+	if (cmd == SET_SUB_ROT){				//command:145
+		hv->capture.ops->cap_send_command((void*)(&hv->capture),STOP_STREAMMING);
+		hv->cmd = SET_CAP_VIDEO;
 
-	}else if (ret == SET_SUB_ROT){			//command:145
-		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
-		hawkview.cmd = SET_CAP_VIDEO;
+	}else if (cmd == SET_CAP_INFO){			//command:146
+		hv->capture.ops->cap_send_command((void*)(&hv->capture),STOP_STREAMMING);
+		hv->cmd = SET_CAP_INFO;
 
-	}else if (ret == SET_CAP_INFO){			//command:146
-		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
-		hawkview.cmd = SET_CAP_INFO;
+	}else if (cmd == SET_CAP_VIDEO){		//command:147
+		hv->capture.ops->cap_send_command((void*)(&hv->capture),STOP_STREAMMING);
+		hv->cmd = SET_CAP_VIDEO;
 
-	}else if (ret == SET_CAP_VIDEO){		//command:147
-		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
-		hawkview.cmd = SET_CAP_VIDEO;
+	}else if (cmd == SET_CAP_SIZE){			//command:148
+		hv->capture.ops->cap_send_command((void*)(&hv->capture),STOP_STREAMMING);
+		hv->cmd = SET_CAP_SIZE;
 
-	}else if (ret == SET_CAP_SIZE){			//command:148
-		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_STREAMMING);
-		hawkview.cmd = SET_CAP_SIZE;
+	}else if (cmd == SAVE_IMAGE){			//command:149
+		hv->capture.ops->cap_send_command((void*)(&hv->capture),SAVE_IMAGE);
 
-	}else if (ret == SAVE_IMAGE){			//command:149
-		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),SAVE_IMAGE);
-
-	}else if (ret == SAVE_FRAME){			//command:150
-		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),SAVE_FRAME);
+	}else if (cmd == SAVE_FRAME){			//command:150
+		hv->capture.ops->cap_send_command((void*)(&hv->capture),SAVE_FRAME);
 			
-	}else if (ret == STOP_SAVE_FRAME){		//command:151
-		hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),STOP_SAVE_FRAME);
+	}else if (cmd == STOP_SAVE_FRAME){		//command:151
+		hv->capture.ops->cap_send_command((void*)(&hv->capture),STOP_SAVE_FRAME);
 
-	}else if (ret == STOP_STREAMMING){		//command:160
-		hawkview.cmd = STOP_STREAMMING;
+	}else if (cmd == STOP_STREAMMING){		//command:160
+		hv->cmd = STOP_STREAMMING;
 		
-	}else if (ret == START_STREAMMING){		//command:161
-		hawkview.cmd = START_STREAMMING;
+	}else if (cmd == START_STREAMMING){		//command:161
+		hv->cmd = START_STREAMMING;
 
-	}else if (ret == FULL_SCREEN){			//command:200
-		hawkview.display.ops->disp_send_command((void*)(&hawkview.display),FULL_SCREEN);
+	}else if (cmd == FULL_SCREEN){			//command:200
+		hv->display.ops->disp_send_command((void*)(&hv->display),FULL_SCREEN);
 
-	}else if (ret == FULL_CAPTURE){			//command:201
-		hawkview.display.ops->disp_send_command((void*)(&hawkview.display),FULL_CAPTURE);
+	}else if (cmd == FULL_CAPTURE){			//command:201
+		hv->display.ops->disp_send_command((void*)(&hv->display),FULL_CAPTURE);
 	}
 
-set_alarm:	
-    //alarm(1);
-
-	
     return;
 }
 
-static void* hawkview_command(void* arg)
+static void* hawkview_command_thread(void* arg)
 {
+	int ret;
+	hawkview_handle* hv = (hawkview_handle*)arg;
 	while(1){
-		alarm_command(1);
+		//fetch the message for command file: data/camera/command
+		ret = fetch_cmd(hv);
+		if(ret <= 0)
+			continue;
+
+		if (ret == COMMAND_EXIT){
+			hv_dbg("hawkview command thread exit!");
+			break;
+		}
+		else if (ret == COMMAND_WAIT){
+			//TODO
+		}
+		
+		//handle the message
+		send_command(hv,ret);
 	}
 	return 0;
 }
 
-int start_video_thread(hawkview_handle* hawkview)
+int start_video_thread(hawkview_handle* hv)
 {
 	int ret;
-	video_tid = 0;
-	ret = pthread_create(&video_tid, NULL, hawkview_video, (void *)hawkview);
+	hv->vid_thread.tid = 0;
+	ret = pthread_create(&hv->vid_thread.tid, NULL, hawkview_video_thread, (void *)hv);
 	hv_dbg("video pthread_create ret:%d\n",ret);
     if ( ret == -1) {
        	hv_err("camera: can't create video thread(%s)\n", strerror(errno));
@@ -284,11 +277,11 @@ int start_video_thread(hawkview_handle* hawkview)
 	return ret;
 }
 
-int start_command_thread(hawkview_handle* hawkview)
+int start_command_thread(hawkview_handle* hv)
 {
 	int ret;
-	command_tid = 0;
-	ret = pthread_create(&command_tid, NULL, hawkview_command, (void *)hawkview);
+	hv->cmd_thread.tid = 0;
+	ret = pthread_create(&hv->cmd_thread.tid, NULL, hawkview_command_thread, (void *)hv);
 	hv_dbg("command pthread_create ret:%d\n",ret);
     if ( ret == -1) {
        	hv_err("camera: can't create command thread(%s)\n", strerror(errno));
@@ -297,65 +290,87 @@ int start_command_thread(hawkview_handle* hawkview)
 	return ret;
 	
 }
+static int init_defualt_parameters(hawkview_handle* hv)
+{	
+	hv->capture.set_w = 1280;
+	hv->capture.set_h = 720;
+	hv->capture.video_no = 1;
+	hv->capture.subdev_id = 0;
+	hv->capture.cap_fps = 30;
+	hv->capture.cap_fmt = V4L2_PIX_FMT_NV12;
+	hv->capture.sub_w = 640;
+	hv->capture.sub_h = 480;
+	hv->display.input_w = 640;
+	hv->display.input_h = 480;
 
-int hawkview_init(hawkview_handle* haw)
+	return 0;
+
+}
+int hawkview_init(hawkview_handle** hv)
 {
 	int ret;
+	hawkview_handle *hawkview;
+
 	memset(&old_stat,0,sizeof(struct stat));
-	memset(&hawkview, 0, sizeof(hawkview_handle));
-	memcpy(&hawkview,haw,sizeof(hawkview_handle));
-	ret = display_register(&hawkview);
+
+	hawkview = malloc(sizeof(hawkview_handle));
+	if(hawkview == NULL){
+		hv_err("malloc hawkview faided!\n");
+		return -1;
+	}		
+	memset(hawkview,0,sizeof(hawkview_handle));
+	*hv = hawkview;
+
+	init_defualt_parameters(hawkview);
+	
+	hv_dbg("hawkview_init set_w %d\n",hawkview->capture.set_w);
+	
+	ret = display_register(hawkview);
 	if(ret == -1){
 		hv_err("display_register failed\n");
 		return -1;
 	}
 
-	ret = capture_register(&hawkview);
+	ret = capture_register(hawkview);
 	if(ret == -1){
 		hv_err("capture_register failed\n");		
 		return -1;
 	}
 	
-	if(hawkview.display.ops->disp_init){
-		ret = hawkview.display.ops->disp_init((void*)&hawkview.display);
+	if(hawkview->display.ops->disp_init){
+		ret = hawkview->display.ops->disp_init((void*)&hawkview->display);
 		if(ret == -1) {
 			hv_err("display init fail!\n");
 			return -1;
 		}else hv_msg("display init sucessfully\n");
 	}
-	#if 0
-	if(hawkview.capture.ops->cap_init){
-	hv_dbg("hawkview.capture.video_no: %d\n",hawkview.capture.video_no);
-		//ret = hawkview.capture.ops->cap_init((void*)&hawkview.capture);
-		if(ret == -1) {
-			hv_err("capture init fail!\n");
-			return -1;
-		}else hv_dbg("capture init sucessfully\n");
-	}
-	else
-		return -1;
-	#endif
 	
-	//pthread_mutex_init(&video_mutex, NULL);
-	//pthread_cond_init(&video_cond, NULL);
+	pthread_mutex_init(&hawkview->cmd_thread.mutex, NULL);
+	pthread_cond_init(&hawkview->cmd_thread.cond, NULL);
 
-	hawkview.status = VIDEO_WAIT;
-	//hawkview.capture.ops->cap_send_command((void*)(&hawkview.capture),START_STREAMMING);
+	pthread_mutex_init(&hawkview->vid_thread.mutex, NULL);
+	pthread_cond_init(&hawkview->vid_thread.cond, NULL);
 
-	//signal(SIGALRM, alarm_command);
-    //alarm(1);
-
-	start_video_thread((void*)&hawkview);
-	start_command_thread((void*)&hawkview);
-	pthread_join(video_tid,&video_ret);
-	pthread_join(video_tid,&cmd_ret);
+	hawkview->status = VIDEO_WAIT;
 	
 	return 0;
 }
 
+void hawkview_start(hawkview_handle* hv)
+{
+	start_video_thread(hv);
+	start_command_thread(hv);
+	
+	pthread_join(hv->cmd_thread.tid,&hv->cmd_thread.status);	
+	pthread_join(hv->vid_thread.tid,&hv->vid_thread.status);
+}
 
+void hawkview_stop(hawkview_handle* hv)
+{
 
-void hawkview_quit()
+}
+
+int hawkview_release(hawkview_handle* hv)
 {
 	//TODO
 	//pthread_mutex_destroy(&video_mutex);

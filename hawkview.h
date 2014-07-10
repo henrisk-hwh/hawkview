@@ -147,6 +147,14 @@ typedef struct _capture
 
 ///////////////////////////////////////////////////////////////////////////////
 //command
+typedef struct _thread
+{
+	pthread_mutex_t         mutex;
+	pthread_cond_t          cond;
+	pthread_t       tid;
+	void*           status; 
+}thread_handle;
+
 typedef struct _hawkview
 {
 
@@ -156,7 +164,18 @@ typedef struct _hawkview
 
 	command cmd;
 	video_status status;
+
+	thread_handle cmd_thread;
+	thread_handle vid_thread;
 }hawkview_handle;
+
+int hawkview_init(hawkview_handle** hv);
+
+void hawkview_start(hawkview_handle* hv);
+void hawkview_stop(hawkview_handle* hv);
+int  hawkview_release(hawkview_handle* hv);
+
+
 
 #endif
 
