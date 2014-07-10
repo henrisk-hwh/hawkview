@@ -353,6 +353,11 @@ static int setVideoParams(void* capture)
 		hv_msg("the subchannel size is %dx%d\n",fmt.fmt.pix.subchannel->width,fmt.fmt.pix.subchannel->height);
 		cap->sub_w = fmt.fmt.pix.subchannel->width;
 		cap->sub_h = fmt.fmt.pix.subchannel->height;
+		int size = 0;
+		size =  size +ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
+		size =  size +ALIGN_4K(ALIGN_16B(cap->sub_w) * cap->sub_h * 3 >> 1);
+		size =  size +ALIGN_4K(ALIGN_16B(cap->sub_h) * cap->sub_w * 3 >> 1);
+		hv_err("total buffer size %x\n",size);
 	}
 	return 0;
 	
@@ -570,8 +575,10 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 	int target_h;
 	int target_w;
 	addrPhyY = buf.m.offset;
+	hv_err("main channel addr %x\n",addrPhyY);
 	if(cap->sensor_type == V4L2_SENSOR_TYPE_RAW){
-		addrPhyY = addrPhyY + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);	
+		addrPhyY = addrPhyY + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
+		hv_err("sub channel addr %x\n",addrPhyY);
 		target_h = cap->sub_h;
 		target_w = cap->sub_w;
 	}else{
@@ -584,7 +591,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		tmp = target_h;
 		target_h = target_w;
 		target_w = tmp;
-		
+		hv_err("rot channel addr %x\n",addrPhyY);
 	}
 	// set disp buffer
 	if (set_disp_addr){		
