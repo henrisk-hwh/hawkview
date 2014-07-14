@@ -407,7 +407,7 @@ static int reqBuffers(void* capture)
 	int i;
 	struct v4l2_requestbuffers req;
 	capture_handle* cap = (capture_handle*)capture;
-	
+	struct v4l2_buffer buf;
 	/* request buffer */
 	memset(&req, 0, sizeof(struct v4l2_requestbuffers));
 	req.count  = req_frame_num;
@@ -420,8 +420,6 @@ static int reqBuffers(void* capture)
 
 	buffers = calloc(req.count, sizeof(struct buffer));
 	for (nbuffers = 0; nbuffers < req.count; nbuffers++) {
-		struct v4l2_buffer buf;
-
 		memset(&buf, 0, sizeof(struct v4l2_buffer));
 		buf.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf.memory = V4L2_MEMORY_MMAP;
@@ -439,17 +437,20 @@ static int reqBuffers(void* capture)
 		buffers[nbuffers].length = buf.length;
 		if (buffers[nbuffers].start == MAP_FAILED) {
 			hv_err("mmap failed\n");
+			for(int i = 0;i < nbuffers,i++){
+				hv_dbg("munmap buffer index: %d,mem: %x",i,int)buffers[nbuffers].start);
+				munmap(buffers[i].start, buffers[i].length);
+			}
 			return -2;	//goto release buffer
 		}
-		hv_dbg("index: %d, mem: %x, len: %x, offset: %x\n",
+		hv_dbg("map buffer index: %d, mem: %x, len: %x, offset: %x\n",
 				nbuffers,(int)buffers[nbuffers].start,buf.length,buf.m.offset);
-
-		if (ioctl(videofh, VIDIOC_QBUF, &buf) == -1) {
-			hv_err("VIDIOC_QBUF error\n");
-			return -3;//goto umap
-		}		
 	}
-	
+	for(nbuffers = 0; nbuffers < req.count; nbuffers++){
+		if (ioctl(videofh, VIDIOC_QBUF, &buf) == -1) 
+		hv_err("VIDIOC_QBUF error\n");
+		return -3;//goto umap
+	}
 	
 }
 int getExifInfo(struct isp_exif_attribute *exif)
