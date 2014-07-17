@@ -447,9 +447,14 @@ static int reqBuffers(void* capture)
 				nbuffers,(int)buffers[nbuffers].start,buf.length,buf.m.offset);
 	}
 	for(nbuffers = 0; nbuffers < req.count; nbuffers++){
-		if (ioctl(videofh, VIDIOC_QBUF, &buf) == -1) 
-		hv_err("VIDIOC_QBUF error\n");
-		return -3;//goto umap
+		memset(&buf, 0, sizeof(struct v4l2_buffer));
+		buf.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		buf.memory = V4L2_MEMORY_MMAP;
+		buf.index  = nbuffers;
+		if (ioctl(videofh, VIDIOC_QBUF, &buf) == -1){ 
+			hv_err("VIDIOC_QBUF error\n");
+			return -3;//goto umap
+		}
 	}
 	
 }
