@@ -437,8 +437,8 @@ static int reqBuffers(void* capture)
 		buffers[nbuffers].length = buf.length;
 		if (buffers[nbuffers].start == MAP_FAILED) {
 			hv_err("mmap failed\n");
-			for(int i = 0;i < nbuffers,i++){
-				hv_dbg("munmap buffer index: %d,mem: %x",i,int)buffers[nbuffers].start);
+			for(i = 0;i < nbuffers;i++){
+				hv_dbg("munmap buffer index: %d,mem: %x",i,(int)buffers[nbuffers].start);
 				munmap(buffers[i].start, buffers[i].length);
 			}
 			return -2;	//goto release buffer

@@ -97,10 +97,40 @@ typedef struct _display
 
 ///////////////////////////////////////////////////////////////////////////////
 //capture
+#if 0
+struct buffer
+{
+    void   *start;
+    size_t length;
+};
+
+
+
+struct v4l2_core_ops{
+	int (*open_device)(void*);
+	int (*set_video_params)(void*);
+	int (*req_buffers)(void*);
+	int (*stream_on)(void*);
+	int (*stream_off)(void*);
+};
+struct v4l2_platform_ops{
+	int (*get_sensor_type)(void*);
+	int (*set_flip)(void*);
+};
+
+struct _v4l2{
+	int video_fd;
+	int req_buffer_num;
+	struct buffer* buffers;
+	struct v4l2_core_ops *core_ops;
+	struct v4l2_platform_ops *platform_ops;
+}v4l2_handle;
+#endif
 typedef struct _image{
 	char path_name[50];
 	struct isp_exif_attribute exif;
 }image;
+
 struct cap_ops
 {
 	int (*cap_init)(void*);
