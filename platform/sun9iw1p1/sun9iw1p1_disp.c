@@ -1,5 +1,5 @@
 #include "sun9iw1p1_display.h"
-#include "../../hawkview.h"
+#include "hawkview.h"
 
 struct test_layer_info
 {

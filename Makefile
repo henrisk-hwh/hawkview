@@ -10,11 +10,12 @@ LDFLAGS         =
 PLATFORM = $(shell echo ${HAWKVIEW_PLATFORM})
 PLATFORM_DIR = platform/$(PLATFORM)
 
-#PLATFORM_DISP = $(PLATFORM_DIR)/$(PLATFORM)_disp.c
+PLATFORM_DISP = $(PLATFORM_DIR)/$(PLATFORM)_disp.c
 #PLATFORM_VIDEO = $(PLATFORM_DIR)/$(PLATFORM)_video.c
-PLATFORM_DISP = sun9iw1p1_disp.c
+
+#LATFORM_DISP = sun9iw1p1_disp.c
 PLATFORM_VIDEO = sun9iw1p1_video.c
-SRCS    = main.c hawkview.c $(PLATFORM_VIDEO) $(PLATFORM_DISP)
+SRCS    = main.c hawkview.c video_helper.c $(PLATFORM_VIDEO) $(PLATFORM_DISP)
 OBJS    = $(SRCS:.c=.o)
 
 .SUFFIXES: .c .o

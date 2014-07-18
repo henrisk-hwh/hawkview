@@ -97,14 +97,12 @@ typedef struct _display
 
 ///////////////////////////////////////////////////////////////////////////////
 //capture
-#if 0
+
 struct buffer
 {
     void   *start;
     size_t length;
 };
-
-
 
 struct v4l2_core_ops{
 	int (*open_device)(void*);
@@ -125,7 +123,7 @@ struct _v4l2{
 	struct v4l2_core_ops *core_ops;
 	struct v4l2_platform_ops *platform_ops;
 }v4l2_handle;
-#endif
+
 typedef struct _image{
 	char path_name[50];
 	struct isp_exif_attribute exif;

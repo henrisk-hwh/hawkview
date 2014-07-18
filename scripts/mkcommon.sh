@@ -14,6 +14,7 @@ HAWKVIEW_TOP_DIR=`pwd`
 
 if [ "x$1" = "xconfig" ] ; then
 	. ${HAWKVIEW_TOP_DIR}/scripts/mksetup.sh
+	make
 	exit $?
 	
 elif [ "x$1" = "xclean" ] ; then
@@ -21,6 +22,10 @@ elif [ "x$1" = "xclean" ] ; then
 	exit $?	
 
 elif [ $# -eq 0 ] ; then
+	if [ ! -f .buildconfig ] ; then
+		. ${HAWKVIEW_TOP_DIR}/scripts/mksetup.sh
+		make distclean
+	fi
 	make
 	exit $?	
 fi
