@@ -304,7 +304,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		hv_dbg("capture start streaming\n");
 		type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		if (ioctl(videofh, VIDIOC_STREAMON, &type) == -1) {
-			hv_err("VIDIOC_STREAMON error\n");
+			hv_err("VIDIOC_STREAMON error! %s\n",strerror(errno));
 			goto quit;
 		}
 		cap->status = ON;
@@ -314,8 +314,9 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 	
 	if(cap->status == ON && cap->cmd == STOP_STREAMMING){
 		hv_dbg("capture stop streaming\n");
-		if(-1==ioctl(videofh, VIDIOC_STREAMOFF, &type)){
-			hv_err("VIDIOC_STREAMOFF error!\n");
+		type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		if(-1 == ioctl(videofh, VIDIOC_STREAMOFF, &type)){
+			hv_err("VIDIOC_STREAMOFF error! %s\n",strerror(errno));
 			goto quit;
 		}
 		cap->status = OFF;

@@ -33,6 +33,7 @@ static void* hawkview_video_thread(void* arg)
 	int ret;
 	hawkview_handle* hv = (hawkview_handle*)arg;
 	while(1){
+		pthread_mutex_lock(&hv->vid_thread.mutex);
 		if (old_hv_cmd != hv->cmd){
 			hv_dbg("current video cmd is %d\n",hv->cmd);
 			old_hv_cmd = hv->cmd;
@@ -53,7 +54,9 @@ static void* hawkview_video_thread(void* arg)
 				hv->capture.ops->cap_send_command((void*)(&hv->capture),START_STREAMMING);
 				hv->status = VIDEO_START;
 			}
-
+			else
+				pthread_cond_wait(&hv->vid_thread.cond, &hv->vid_thread.mutex);
+			pthread_mutex_unlock(&hv->vid_thread.mutex);
 			continue;
 
 		}
@@ -64,22 +67,23 @@ static void* hawkview_video_thread(void* arg)
 			if(hv->capture.ops->cap_frame){
 				ret = hv->capture.ops->cap_frame((void*)(&hv->capture),hv->display.ops->disp_set_addr);
 			}
-			if(ret == 0) continue;
+			if(ret == 0) {
+				pthread_mutex_unlock(&hv->vid_thread.mutex);
+				continue;
+			}
 			
 			if(ret == 2) {
 				hv_dbg("video wait\n");
 				hv->status = VIDEO_WAIT;
-				if(hv->cmd == STOP_STREAMMING){
-					//pthread_mutex_lock(&video_mutex);
-					//pthread_cond_wait(&video_cond, &video_mutex);
-					//pthread_mutex_unlock(&video_mutex);
-				}
+				pthread_cond_wait(&hv->vid_thread.cond, &hv->vid_thread.mutex);
+				pthread_mutex_unlock(&hv->vid_thread.mutex);
 				continue;
 			}
 
 			if(ret == -1)
 				return (void*)-1;
 		}
+		
 	}
 
 	if(hv->capture.ops->cap_quit)
@@ -258,8 +262,12 @@ static void* hawkview_command_thread(void* arg)
 			//TODO
 		}
 		
-		//handle the message
+		//FIXED ME:it should to use mutex lock,but it seem bad experience
+		//the command can't send in time
+		//pthread_mutex_lock(&hv->vid_thread.mutex);
 		send_command(hv,ret);
+		//pthread_mutex_unlock(&hv->vid_thread.mutex);
+		pthread_cond_signal(&hv->vid_thread.cond);
 	}
 	return 0;
 }
