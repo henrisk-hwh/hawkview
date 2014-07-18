@@ -97,7 +97,6 @@ int set_exif_info(void* capture){
 
 int set_cap_info(void* capture)
 {
-	int ret;
 	char info[500];
 	char exif[500];
 	char file_path[20];
@@ -126,10 +125,8 @@ int set_cap_info(void* capture)
 }
 int set_sync_status(void* capture,int index)
 {
-	FILE* fp;
 	char sync[5];
 	char file_path[20];
-	capture_handle* cap = (capture_handle*)capture;
 	
 	memset(sync,0,sizeof(sync));
 
@@ -253,5 +250,6 @@ int do_save_frame(void* capture,int buf_index)
 		interval = tmp_interval - 1;
 		return 0;
 	}
-
+	return 0;
 }
+
