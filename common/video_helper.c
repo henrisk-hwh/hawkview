@@ -54,19 +54,19 @@ int write_file(char* file_path,char* string,int lenght )
 int make_exif_info(char* exif_str,char* name, struct isp_exif_attribute *exif,int w,int h)
 {
 	sprintf(exif_str,						\
-				 "image name:      = %s\n" 	\
-				 "width:           = %d\n"	\
-				 "height:          = %d\n"	\
-				 "exp_time_num:    = %d\n"	\
-				 "exp_time_den:    = %d\n"	\
-				 "sht_speed_num:   = %d\n"	\
-				 "sht_speed_den:   = %d\n"	\
-				 "fnumber:         = %d\n"	\
-				 "exp_bias:        = %d\n"	\
-				 "foc_lenght:      = %d\n"	\
-				 "iso_speed:       = %d\n"	\
-				 "flash_fire:      = %d\n"	\
-				 "brightness:      = %d\n#",	\
+				 "image name       = %s\n" 	\
+				 "width            = %d\n"	\
+				 "height           = %d\n"	\
+				 "exp_time_num     = %d\n"	\
+				 "exp_time_den     = %d\n"	\
+				 "sht_speed_num    = %d\n"	\
+				 "sht_speed_den    = %d\n"	\
+				 "fnumber          = %d\n"	\
+				 "exp_bias         = %d\n"	\
+				 "foc_lenght       = %d\n"	\
+				 "iso_speed        = %d\n"	\
+				 "flash_fire       = %d\n"	\
+				 "brightness       = %d\n#",	\
 	name,			\
 	w,						\
 	h,						\
@@ -105,9 +105,9 @@ int set_cap_info(void* capture)
 	strcpy(file_path,"dev/info");
 	//sync string: sensor_type:save_status:framrate:capture_w:capture_h,sub_w,sub_h#
 	sprintf(info,	\
-				 "sensor_type:     = %s\n" 		\
-				 "status:          = %d\n"		\
-				 "framerate:       = %0.2f\n"	\
+				 "sensor_type      = %s\n" 		\
+				 "status           = %d\n"		\
+				 "framerate        = %0.2f\n"	\
 				 "subchanel_width  = %d\n"		\
 				 "subchanel_height = %d\n"		\
 				 "rotation         = %d\n\n",		\
