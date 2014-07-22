@@ -54,7 +54,7 @@ int write_file(char* file_path,char* string,int lenght )
 int make_exif_info(char* exif_str,char* name, struct isp_exif_attribute *exif,int w,int h)
 {
 	sprintf(exif_str,						\
-				 "image name       = %s\n" 	\
+				 "image_name       = %s\n" 	\
 				 "width            = %d\n"	\
 				 "height           = %d\n"	\
 				 "exp_time_num     = %d\n"	\
@@ -63,7 +63,7 @@ int make_exif_info(char* exif_str,char* name, struct isp_exif_attribute *exif,in
 				 "sht_speed_den    = %d\n"	\
 				 "fnumber          = %d\n"	\
 				 "exp_bias         = %d\n"	\
-				 "foc_lenght       = %d\n"	\
+				 "foc_length       = %d\n"	\
 				 "iso_speed        = %d\n"	\
 				 "flash_fire       = %d\n"	\
 				 "brightness       = %d\n#",	\

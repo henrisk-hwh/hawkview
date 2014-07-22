@@ -279,8 +279,6 @@ static void* hawkview_command_thread(void* arg)
 			//TODO
 		}
 		
-		//FIXED ME:it should to use mutex lock,but it seem bad experience
-		//the command can't send in time
 		pthread_mutex_lock(&hv->vid_thread.mutex);
 		hv_dbg("send command %d\n",ret);
 		send_command(hv,ret);
