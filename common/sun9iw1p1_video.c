@@ -9,8 +9,8 @@ static int nbuffers = 0;
 static int videofh = 0;
 static int req_frame_num = 10;
 
-int old_status = 0;
-int old_vi_cmd = 0;
+int old_status = -1;
+int old_vi_cmd = -1;
 
 int get_framerate_status = 4;
 
@@ -279,7 +279,7 @@ open_err:
 	return -1;
 }
 
-static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int*))
+static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int*),pthread_mutex_t* mutex)
 {
 	capture_handle* cap = (capture_handle*)capture;
 	int ret;
@@ -289,14 +289,14 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 
 	fd_set fds;
 	struct timeval tv;
-	
+	pthread_mutex_lock(mutex);
 	//used for cammand and status debug
 	if (old_vi_cmd != cap->cmd){
-		hv_dbg("capture frame command is %d\n",cap->cmd);
+		hv_dbg("capture frame command %d --> %d\n",old_vi_cmd,cap->cmd);
 		old_vi_cmd = (int)cap->cmd;
 	}
 	if(old_status != cap->status){
-		hv_dbg("capture frame status is %d\n",cap->status);
+		hv_dbg("capture frame status  %d --> %d\n",old_status,cap->status);
 		old_status = cap->status;
 	}
 
@@ -309,6 +309,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		}
 		cap->status = ON;
 		cap->cmd = COMMAND_UNUSED;
+		pthread_mutex_unlock(mutex);
 		return 0;
 	}
 	
@@ -322,16 +323,22 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		cap->status = OFF;
 		cap->cmd = COMMAND_UNUSED;
 		capture_quit(capture);
+		pthread_mutex_unlock(mutex);
 		return 2;
 	}
 
-	if(cap->status == OFF) return 0;
+	if(cap->status == OFF) {
+		pthread_mutex_unlock(mutex);
+		return 0;
+	}
 	FD_ZERO(&fds);
 	FD_SET(videofh, &fds);
 
 	tv.tv_sec  = 2;
 	tv.tv_usec = 0;
+	pthread_mutex_unlock(mutex);
 	ret = select(videofh + 1, &fds, NULL, NULL, &tv);
+	pthread_mutex_lock(mutex);
 	//hv_dbg("select video ret: %d\n",ret);
 	if (ret == -1) {
 		if (errno == EINTR) {
@@ -409,6 +416,8 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		hv_err("VIDIOC_DQBUF failed!\n");		
 		goto stream_off;
 	}
+
+	pthread_mutex_unlock(mutex);
 	return 0;
 	
 stream_off:
@@ -416,6 +425,7 @@ stream_off:
 	ioctl(videofh, VIDIOC_STREAMOFF, &type);
 quit:
 	capture_quit(capture);
+	pthread_mutex_unlock(mutex);
 	return -1;
 
 	

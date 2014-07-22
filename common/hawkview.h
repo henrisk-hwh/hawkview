@@ -132,7 +132,7 @@ typedef struct _image{
 struct cap_ops
 {
 	int (*cap_init)(void*);
-	int (*cap_frame)(void*,int (*)(int,int,unsigned int*));
+	int (*cap_frame)(void*,int (*)(int,int,unsigned int*),pthread_mutex_t*);
 	int (*cap_quit)(void*);
 	int (*cap_send_command)(void*,command);
 };

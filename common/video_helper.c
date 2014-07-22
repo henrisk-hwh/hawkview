@@ -120,7 +120,7 @@ int set_cap_info(void* capture)
 
 	make_exif_info(exif,"none",&(cap->frame.exif),cap->cap_w,cap->cap_h);
 	strcat(info,exif);
-	hv_dbg("info str:\n%s\n",info);
+	//hv_dbg("info str:\n%s\n",info);
 	return write_file(file_path,info,sizeof(info));
 }
 int set_sync_status(void* capture,int index)

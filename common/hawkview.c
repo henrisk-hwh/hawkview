@@ -28,54 +28,71 @@ struct stat old_stat;
 extern int display_register(hawkview_handle* hawkview);
 extern int capture_register(hawkview_handle* hawkview);
 
+static int should_start_camera(hawkview_handle* hv)
+{
+	int ret = 0;
+	if(hv->cmd == SET_CAP_SIZE || \
+	   hv->cmd == START_STREAMMING ||\
+	   hv->cmd == SET_CAP_VIDEO ||\
+	   hv->cmd == SET_SUB_ROT ||\
+	   hv->cmd == SET_CAP_INFO){
+		ret = 1;
+	}
+	return ret;
+}
 static void* hawkview_video_thread(void* arg)
 {
 	int ret;
 	hawkview_handle* hv = (hawkview_handle*)arg;
 	while(1){
-		pthread_mutex_lock(&hv->vid_thread.mutex);
+		
 		if (old_hv_cmd != hv->cmd){
-			hv_dbg("current video cmd is %d\n",hv->cmd);
+			hv_dbg("video thread cmd: %d --> %d\n",old_hv_cmd,hv->cmd);
 			old_hv_cmd = hv->cmd;
 		}
 		if (old_hv_status != hv->status){
-			hv_dbg("current video status is %d\n",hv->status);
+			hv_dbg("video thread status %d --> %d\n",old_hv_status,hv->status);
 			old_hv_status = hv->status;
 		}		
 		if(hv->status == VIDEO_EXIT) break;//TODO, no test
 		
 		if(hv->status == VIDEO_WAIT) {
-			if(hv->cmd == SET_CAP_SIZE || \
-			   hv->cmd == START_STREAMMING ||\
-			   hv->cmd == SET_CAP_VIDEO ||\
-			   hv->cmd == SET_CAP_INFO){
+			pthread_mutex_lock(&hv->vid_thread.mutex);
+			if(should_start_camera(hv)){
 				hv_dbg("reset video capture\n");
 				ret = hv->capture.ops->cap_init((void*)&hv->capture);
 				hv->capture.ops->cap_send_command((void*)(&hv->capture),START_STREAMMING);
 				hv->status = VIDEO_START;
 			}
-			else
+			else{
 				pthread_cond_wait(&hv->vid_thread.cond, &hv->vid_thread.mutex);
+			}
+			
 			pthread_mutex_unlock(&hv->vid_thread.mutex);
 			continue;
 
 		}
 		if(hv->status == VIDEO_START) {
+			pthread_mutex_lock(&hv->vid_thread.mutex);
 			if(hv->cmd == STOP_STREAMMING)				
 				hv->capture.ops->cap_send_command((void*)(&hv->capture),STOP_STREAMMING);
-
+			pthread_mutex_unlock(&hv->vid_thread.mutex);
 			if(hv->capture.ops->cap_frame){
-				ret = hv->capture.ops->cap_frame((void*)(&hv->capture),hv->display.ops->disp_set_addr);
+				ret = hv->capture.ops->cap_frame((void*)(&hv->capture),hv->display.ops->disp_set_addr,&hv->vid_thread.mutex);
 			}
 			if(ret == 0) {
-				pthread_mutex_unlock(&hv->vid_thread.mutex);
+				//pthread_mutex_unlock(&hv->vid_thread.mutex);
 				continue;
 			}
 			
 			if(ret == 2) {
 				hv_dbg("video wait\n");
+				pthread_mutex_lock(&hv->vid_thread.mutex);
 				hv->status = VIDEO_WAIT;
-				pthread_cond_wait(&hv->vid_thread.cond, &hv->vid_thread.mutex);
+				if(!should_start_camera(hv)){
+					pthread_cond_wait(&hv->vid_thread.cond, &hv->vid_thread.mutex);
+				}
+				
 				pthread_mutex_unlock(&hv->vid_thread.mutex);
 				continue;
 			}
@@ -183,7 +200,7 @@ int fetch_cmd(hawkview_handle* hv)
 
 	}
 	if(ret == SAVE_FRAME){
-		CHECK_CMD_NUM(n,2);
+		//CHECK_CMD_NUM(n,2);
 		hv->capture.show_rate = atoi(cmd[1]);
 	}
 	if(ret == SAVE_IMAGE){
@@ -205,19 +222,19 @@ void send_command(hawkview_handle* hv,int cmd)
 	
 	if (cmd == SET_SUB_ROT){				//command:145
 		hv->capture.ops->cap_send_command((void*)(&hv->capture),STOP_STREAMMING);
-		hv->cmd = SET_CAP_VIDEO;
+		hv->cmd = cmd;
 
 	}else if (cmd == SET_CAP_INFO){			//command:146
 		hv->capture.ops->cap_send_command((void*)(&hv->capture),STOP_STREAMMING);
-		hv->cmd = SET_CAP_INFO;
+		hv->cmd = cmd;
 
 	}else if (cmd == SET_CAP_VIDEO){		//command:147
 		hv->capture.ops->cap_send_command((void*)(&hv->capture),STOP_STREAMMING);
-		hv->cmd = SET_CAP_VIDEO;
+		hv->cmd = cmd;
 
 	}else if (cmd == SET_CAP_SIZE){			//command:148
 		hv->capture.ops->cap_send_command((void*)(&hv->capture),STOP_STREAMMING);
-		hv->cmd = SET_CAP_SIZE;
+		hv->cmd = cmd;
 
 	}else if (cmd == SAVE_IMAGE){			//command:149
 		hv->capture.ops->cap_send_command((void*)(&hv->capture),SAVE_IMAGE);
@@ -264,9 +281,10 @@ static void* hawkview_command_thread(void* arg)
 		
 		//FIXED ME:it should to use mutex lock,but it seem bad experience
 		//the command can't send in time
-		//pthread_mutex_lock(&hv->vid_thread.mutex);
+		pthread_mutex_lock(&hv->vid_thread.mutex);
+		hv_dbg("send command %d\n",ret);
 		send_command(hv,ret);
-		//pthread_mutex_unlock(&hv->vid_thread.mutex);
+		pthread_mutex_unlock(&hv->vid_thread.mutex);
 		pthread_cond_signal(&hv->vid_thread.cond);
 	}
 	return 0;
