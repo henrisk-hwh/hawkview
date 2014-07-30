@@ -2,13 +2,13 @@
 
 extern struct buffer *buffers;
 
-int is_x_sec(int sec,long long secs,long long usecs)
+int is_x_msec(int msec,long long secs,long long usecs)
 {
 	static long long timestamp_old = 0;
 	long long timestamp = usecs + secs* 1000000;
 	if(timestamp_old == 0)
 		timestamp_old = timestamp;
-	if((timestamp - timestamp_old) > sec*1000000){
+	if((timestamp - timestamp_old) > msec*1000){
 		timestamp_old = timestamp;
 		return 1;
 	}	

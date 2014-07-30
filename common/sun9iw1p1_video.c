@@ -379,8 +379,8 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 	}
 
 	//sync capture info perp x second
-#define ONE_SECOND 1	
-	if(is_x_sec(ONE_SECOND,(long long)(buf.timestamp.tv_sec),(long long)(buf.timestamp.tv_usec))){
+#define M_SECOND 200	
+	if(is_x_msec(M_SECOND,(long long)(buf.timestamp.tv_sec),(long long)(buf.timestamp.tv_usec))){
 		getExifInfo(&(cap->frame.exif));
 		set_cap_info((void*)cap);
 	}
