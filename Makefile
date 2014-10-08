@@ -13,8 +13,7 @@ PLATFORM_DIR = platform/$(PLATFORM)
 PLATFORM_DISP = $(PLATFORM_DIR)/$(PLATFORM)_disp.c
 #PLATFORM_VIDEO = $(PLATFORM_DIR)/$(PLATFORM)_video.c
 
-#LATFORM_DISP = sun9iw1p1_disp.c
-PLATFORM_VIDEO = common/sun9iw1p1_video.c
+PLATFORM_VIDEO = common/video.c
 SRCS    = main.c common/hawkview.c common/video_helper.c $(PLATFORM_VIDEO) $(PLATFORM_DISP)
 OBJS    = $(SRCS:.c=.o)
 
