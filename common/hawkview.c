@@ -128,7 +128,7 @@ static void* hawkview_video_thread(void* arg)
 			n++;
 			j = 0;
 			if(buf[i] != '#'){
-				i++;				
+				i++;
 			}
 			if(n > *cmd_num){
 				hv_err("the max cmd num is %d\n",*cmd_num);
@@ -151,7 +151,7 @@ int fetch_cmd(hawkview_handle* hv)
 	struct stat cmd_stat;
 	ret = lstat("/data/camera/command",&cmd_stat);
 	if(ret == -1){
-		hv_err("can't lstat /data/camera/command,%s\n",strerror(errno));
+		//hv_err("can't lstat /data/camera/command,%s\n",strerror(errno));
 		return ret;
 	}
 	
@@ -161,14 +161,14 @@ int fetch_cmd(hawkview_handle* hv)
 	fp = fopen("/data/camera/command","rwb+");
 	if(fp){
 		//todo flock;
-		if (flock(fp->_fileno, LOCK_EX) != 0){ // file lock_exclusive
-			hv_dbg("file lock by others\n");
-		}
+		//if (flock(fp->_fileno, LOCK_EX) != 0){ // file lock_exclusive
+		//	hv_dbg("file lock by others\n");
+		//}
 		memset(buf,0,sizeof(buf));
 		memset(cmd,0,sizeof(cmd));
 		ret = fread(buf,50,50,fp);
 		fclose(fp);
-		flock(fp->_fileno, LOCK_UN); //unlock
+		//flock(fp->_fileno, LOCK_UN); //unlock
 
 	}
 	hv_dbg("read cmd %s\n",buf);
@@ -204,7 +204,7 @@ int fetch_cmd(hawkview_handle* hv)
 		hv->capture.show_rate = atoi(cmd[1]);
 	}
 	if(ret == SAVE_IMAGE){
-		CHECK_CMD_NUM(n,2);
+		//CHECK_CMD_NUM(n,2);
 		strcpy(hv->capture.picture.path_name,cmd[1]);
 	}
 	if(ret == SET_SUB_ROT){
@@ -267,6 +267,7 @@ static void* hawkview_command_thread(void* arg)
 	hawkview_handle* hv = (hawkview_handle*)arg;
 	while(1){
 		//fetch the message for command file: data/camera/command
+                usleep(200000);
 		ret = fetch_cmd(hv);
 		if(ret <= 0)
 			continue;
@@ -357,7 +358,7 @@ int hawkview_init(hawkview_handle** hv)
 
 	ret = capture_register(hawkview);
 	if(ret == -1){
-		hv_err("capture_register failed\n");		
+		hv_err("capture_register failed\n");
 		return -1;
 	}
 	
@@ -385,7 +386,7 @@ void hawkview_start(hawkview_handle* hv)
 	start_video_thread(hv);
 	start_command_thread(hv);
 	
-	pthread_join(hv->cmd_thread.tid,&hv->cmd_thread.status);	
+	pthread_join(hv->cmd_thread.tid,&hv->cmd_thread.status);
 	pthread_join(hv->vid_thread.tid,&hv->vid_thread.status);
 }
 
@@ -399,5 +400,5 @@ int hawkview_release(hawkview_handle* hv)
 	//TODO
 	//pthread_mutex_destroy(&video_mutex);
 	//pthread_cond_destroy(&video_cond);
+        return 0;
 }
-

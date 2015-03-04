@@ -96,7 +96,7 @@ static int setVideoParams(void* capture)
 	struct v4l2_format fmt;
 	struct v4l2_pix_format sub_fmt;
 	memset(&fmt, 0, sizeof(struct v4l2_format));
-	memset(&sub_fmt, 0, sizeof(struct v4l2_format));
+	memset(&sub_fmt, 0, sizeof(struct v4l2_pix_format));
 	fmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	fmt.fmt.pix.width       = cap->set_w;
 	fmt.fmt.pix.height      = cap->set_h;
@@ -172,6 +172,7 @@ static int reqBuffers(void* capture)
 										MAP_SHARED, videofh, \
 										buf.m.offset);
 		buffers[nbuffers].length = buf.length;
+
 		if (buffers[nbuffers].start == MAP_FAILED) {
 			hv_err("mmap failed\n");
 			for(i = 0;i < nbuffers;i++){
@@ -193,7 +194,7 @@ static int reqBuffers(void* capture)
 			return -3;//goto umap
 		}
 	}
-	
+	return 0;
 }
 int getExifInfo(struct isp_exif_attribute *exif)
 {
@@ -357,21 +358,13 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 	buf.memory = V4L2_MEMORY_MMAP;
 	ret = ioctl(videofh, VIDIOC_DQBUF, &buf);
 	if (ret == -1) {
-		hv_err("VIDIOC_DQBUF failed!\n");		
-		goto stream_off;		
+		hv_err("VIDIOC_DQBUF failed!\n");
+		goto stream_off;
 	}
 
-	//get display addr
-	int w,h;
-	unsigned int addr;
-	get_disp_addr(capture, buf.m.offset,&addr,&w,&h);
 
-	// set disp buffer
-	if (set_disp_addr){		
-		set_disp_addr(w,h,&addr);
-	}
 	
-	float framerate;		
+	float framerate;
 	framerate = get_framerate((long long)(buf.timestamp.tv_sec),(long long)(buf.timestamp.tv_usec));
 	if(framerate > 1.0){
 		cap->cap_fps = framerate;
@@ -394,7 +387,7 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 		
 		if(cap->cmd == SAVE_FRAME){
 			cap->save_status = ON;
-			cap->cmd = COMMAND_UNUSED;		
+			cap->cmd = COMMAND_UNUSED;
 		}
 		ret = do_save_frame(capture,buf.index);
 	}
@@ -403,17 +396,31 @@ static int capture_frame(void* capture,int (*set_disp_addr)(int,int,unsigned int
 	//image name: 		xxxx (set by usered through command)
 	//exif info name: 	xxxx.exif
 	if(cap->cmd == SAVE_IMAGE ) {
-		ret = getExifInfo(&(cap->picture.exif));
+		ret = 0;//getExifInfo(&(cap->picture.exif));
 		//get target frame exif info successfully then save the target image
 		//if get the exif info fail,it will try next frame
 		if(ret == 0){
-			do_save_image(capture,buf.index);
+			buffers[buf.index].phy_addr = buf.m.offset - 0x20000000;
+			hv_dbg("index: %d buffers[buf.index].start = %p\n",buf.index,buffers[buf.index].start);
+			//do_save_image(capture,buf.index);
+			do_save_sub_image(capture,buf.index);
 			cap->cmd = COMMAND_UNUSED;
 		}
-	}	
+	}
+
+	//get display addr
+	int w,h;
+	unsigned int addr;
+	get_disp_addr(capture, buf.m.offset,&addr,&w,&h);
+
+	// set disp buffer
+	if (set_disp_addr){
+		set_disp_addr(w,h,&addr);
+	}
+	
 	ret = ioctl(videofh, VIDIOC_QBUF, &buf);
 	if (ret == -1) {
-		hv_err("VIDIOC_DQBUF failed!\n");		
+		hv_err("VIDIOC_DQBUF failed!\n");
 		goto stream_off;
 	}
 
@@ -438,7 +445,7 @@ int capture_quit(void *capture)
 	hv_msg("capture quit!\n");
 	for (i = 0; i < nbuffers; i++) {
 		hv_dbg("ummap index: %d, mem: %x, len: %x\n",
-				i,(int)buffers[i].start,buffers[i].length);		
+				i,(int)buffers[i].start,buffers[i].length);
 		munmap(buffers[i].start, buffers[i].length);
 	}
 	free(buffers);
