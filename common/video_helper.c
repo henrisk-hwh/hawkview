@@ -230,23 +230,28 @@ int do_save_sub_image(void* capture,int buf_index)
 	hv_dbg("--------set_exif_info end\n");
 	void* vir_sub_start = NULL;
 	unsigned int phy_sub_start = 0;
+	int w,h;
 	if(cap->sensor_type == V4L2_SENSOR_TYPE_RAW){
 		vir_sub_start = (unsigned int)(buffers[buf_index].start) + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
 		phy_sub_start = buffers[buf_index].phy_addr + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
+		w = cap->sub_w;
+		h = cap->sub_h;
 	}
 	else {
 		vir_sub_start = buffers[buf_index].start;
 		phy_sub_start = buffers[buf_index].phy_addr;
+		w = cap->cap_w;
+		h = cap->cap_h;
 	}
 #ifdef ANDROID_ENV
-	ret = save_jpeg_frame(image_name,phy_sub_start,cap->sub_w,cap->sub_h);
+	ret = save_jpeg_frame(image_name,phy_sub_start,w,h);
 	//sprintf(image_name,"/data/camera/yuv%s", cap->picture.path_name);
 	//ret = save_jpeg_frame_by_viraddr(image_name,(void*)vir_sub_start,cap->sub_w,cap->sub_h);
 #else
         sprintf(image_name,"/data/camera/yuv%s", cap->picture.path_name);
 	ret = save_frame_to_file(image_name,				\
 				  (void*)(vir_sub_start),	\
-				  cap->sub_w,cap->sub_h,cap->cap_fmt,	\
+				  w,h,cap->cap_fmt,	\
 				  1);
 #endif
 	if(ret == -1)
