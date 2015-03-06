@@ -48,12 +48,12 @@ int write_file(char* file_path,char* string,int lenght )
 	else{
 			hv_err("Write file fail\n");
 			fclose(fp);
-			return -1;		
+			return -1;
 	}
 }
 int make_exif_info(char* exif_str,char* name, struct isp_exif_attribute *exif,int w,int h)
 {
-	sprintf(exif_str,						\
+	sprintf(exif_str,					\
 				 "image_name       = %s\n" 	\
 				 "width            = %d\n"	\
 				 "height           = %d\n"	\
@@ -185,6 +185,10 @@ int get_disp_addr(void* capture,unsigned int origin,unsigned int* addr,int* w,in
 	*addr = addrPhyY;
 	return 0;
 }
+#ifdef ANDROID_ENV
+extern int save_jpeg_frame(char* path,unsigned int phy_addr,int src_w,int src_h);
+extern int save_jpeg_frame_by_viraddr(char* path,void* srcviraddr,int src_w,int src_h);
+#endif
 int do_save_image(void* capture,int buf_index)
 {
 	int ret;
@@ -197,10 +201,59 @@ int do_save_image(void* capture,int buf_index)
 
 	set_exif_info(capture);
 	hv_dbg("--------set_exif_info end\n");
+#ifdef ANDROID_ENV
+	ret = save_jpeg_frame(image_name,buffers[buf_index].phy_addr,cap->cap_w,cap->cap_h);
+	//ret = save_jpeg_frame_by_viraddr(image_name,(void*)(buffers[buf_index].start),cap->cap_w,cap->cap_h);
+
+#else
+        sprintf(image_name,"/data/camera/yuv%s", cap->picture.path_name);
 	ret = save_frame_to_file(image_name,				\
 				  (void*)(buffers[buf_index].start),	\
 				  cap->cap_w,cap->cap_h,cap->cap_fmt,	\
 				  1);
+#endif
+	if(ret == -1)
+		hv_err("save image failed!\n");
+	return 0;
+}
+int do_save_sub_image(void* capture,int buf_index)
+{
+	int ret;
+	char image_name[30];
+
+	capture_handle* cap = (capture_handle*)capture;
+	memset(image_name,0,sizeof(image_name));
+	sprintf(image_name,"/data/camera/%s", cap->picture.path_name);
+	hv_dbg("image_name: %s\n",image_name);
+
+	set_exif_info(capture);
+	hv_dbg("--------set_exif_info end\n");
+	void* vir_sub_start = NULL;
+	unsigned int phy_sub_start = 0;
+	int w,h;
+	if(cap->sensor_type == V4L2_SENSOR_TYPE_RAW){
+		vir_sub_start = (unsigned int)(buffers[buf_index].start) + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
+		phy_sub_start = buffers[buf_index].phy_addr + ALIGN_4K(ALIGN_16B(cap->cap_w) * cap->cap_h * 3 >> 1);
+		w = cap->sub_w;
+		h = cap->sub_h;
+	}
+	else {
+		vir_sub_start = buffers[buf_index].start;
+		phy_sub_start = buffers[buf_index].phy_addr;
+		w = cap->cap_w;
+		h = cap->cap_h;
+	}
+#ifdef ANDROID_ENV
+	ret = save_jpeg_frame(image_name,phy_sub_start,w,h);
+	//sprintf(image_name,"/data/camera/yuv%s", cap->picture.path_name);
+	//ret = save_jpeg_frame_by_viraddr(image_name,(void*)vir_sub_start,cap->sub_w,cap->sub_h);
+#else
+        sprintf(image_name,"/data/camera/yuv%s", cap->picture.path_name);
+	ret = save_frame_to_file(image_name,				\
+				  (void*)(vir_sub_start),	\
+				  w,h,cap->cap_fmt,	\
+				  1);
+#endif
 	if(ret == -1)
 		hv_err("save image failed!\n");
 	return 0;
@@ -229,6 +282,9 @@ int do_save_frame(void* capture,int buf_index)
 						   (void*)sub_start,					\
 						   cap->sub_w,cap->sub_h,cap->cap_fmt,	\
 						   1);
+
+			//save_jpeg_frame_by_viraddr("data/camera/bbb.jpg",(void*)sub_start,640,480);
+			
 		}
 		else{
 			sub_start = (unsigned int)(buffers[buf_index].start);

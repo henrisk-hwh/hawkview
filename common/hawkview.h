@@ -47,6 +47,18 @@
 #define hv_err(x,arg...) printf("[hawkview_err]xxxx"x,##arg)
 #define hv_msg(x,arg...) printf("[hawkview_msg]----"x,##arg)
 
+#ifdef ANDROID_ENV
+#undef hv_warn
+#undef hv_dbg
+#undef hv_err
+#undef hv_msg
+#define hv_err ALOGE
+#define hv_dbg ALOGD
+#define hv_msg ALOGI
+#define hv_warn ALOGV
+#include <cutils/log.h>
+#include <android/log.h>
+#endif
 ///////////////////////////////////////////////////////////////////////////////
 #define ALIGN_4K(x) (((x) + (4095)) & ~(4095))
 #define ALIGN_32B(x) (((x) + (31)) & ~(31))
@@ -102,6 +114,7 @@ struct buffer
 {
     void   *start;
     size_t length;
+    unsigned int phy_addr;
 };
 
 struct v4l2_core_ops{
